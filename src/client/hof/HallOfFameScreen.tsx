@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import type {
-  LeaderboardResponse,
-  UserStatsResponse,
-} from '../../shared/types/api';
+import type { LeaderboardResponse, UserStatsResponse } from '../../shared/types/api';
 
 type PeriodTab = 'weekly' | 'alltime';
 
@@ -121,10 +118,11 @@ export const HallOfFameScreen = () => {
   return (
     <div
       className="relative flex h-full w-full flex-col items-center overflow-y-auto py-4 px-4 text-white"
-      style={{ background: 'radial-gradient(circle at center, #5b21b6 0%, #1e1b4b 100%)' }}
+      style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)' }}
     >
-      <div className="fixed top-[-10%] left-[-10%] w-[600px] h-[600px] bg-teal-500/20 rounded-full blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-orange-600/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed inset-0 vibrant-pattern pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-teal-400/20 rounded-full blur-[100px]" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-500/20 rounded-full blur-[100px]" />
 
       <div className="relative z-10 w-full max-w-4xl flex flex-col items-center">
         <div className="text-center mb-6">

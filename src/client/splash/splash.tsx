@@ -15,11 +15,6 @@ export const Splash = () => {
       <div className="fixed inset-0 pointer-events-none vibrant-pattern"></div>
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-teal-400/20 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-500/20 rounded-full blur-[100px]"></div>
-      <button className="fixed top-8 right-8 w-8 h-8 bg-white/10 backdrop-blur-md rounded-2xl border-2 border-white/20 text-white flex items-center justify-center hover:bg-white/20 transition-all group z-50 shadow-lg">
-        <span className="material-symbols-outlined text-2xl group-hover:rotate-90 transition-transform duration-500">
-          settings
-        </span>
-      </button>
       <div className="relative z-10 w-full max-w-5xl flex flex-col items-center">
         <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center justify-center w-full">
           {/* Dial on the left */}
@@ -84,7 +79,10 @@ export const Splash = () => {
                   >
                     <span className="text-sm text-yellow-300">Hall of Fame</span>
                   </button>
-                  <button className="secondary-menu-button py-1 px-2 md:py-2 md:px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
+                  <button
+                    onClick={(e) => requestExpandedMode(e.nativeEvent, 'lab')}
+                    className="secondary-menu-button py-1 px-2 md:py-2 md:px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider"
+                  >
                     <span className="text-sm text-yellow-300">Submit Spectrum</span>
                   </button>
                 </div>

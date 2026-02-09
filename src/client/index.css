@@ -135,6 +135,27 @@
     width: 100%;
     opacity: 0.5;
   }
+
+  .outline-button {
+    border: 3px solid white;
+    transition: all 0.2s ease;
+  }
+  .outline-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.02);
+  }
+  .glow-input:focus {
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+    border-color: white;
+    outline: none;
+  }
+  .rainbow-dial {
+    background: conic-gradient(from 270deg at 50% 100%, #2dd4bf, #fbbf24, #f97316, #ef4444);
+    mask: radial-gradient(circle at 50% 100%, transparent 55%, black 56%);
+    -webkit-mask: radial-gradient(circle at 50% 100%, transparent 55%, black 56%);
+    border-radius: 999px 999px 0 0;
+  }
+
   .chunky-button-orange {
     background: var(--game-orange);
     box-shadow: 0 10px 0px var(--button-shadow-orange);
@@ -396,6 +417,16 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes needle-sway {
+  0%,
+  100% {
+    transform: translateX(-50%) rotate(-20deg);
+  }
+  50% {
+    transform: translateX(-50%) rotate(-10deg);
   }
 }
 

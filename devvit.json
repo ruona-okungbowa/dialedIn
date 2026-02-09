@@ -13,6 +13,9 @@
       },
       "hof": {
         "entry": "hof.html"
+      },
+      "lab": {
+        "entry": "lab.html"
       }
     }
   },

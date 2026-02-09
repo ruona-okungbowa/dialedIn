@@ -15,6 +15,7 @@ export default defineConfig({
         splash: 'splash.html',
         game: 'game.html',
         hof: 'hof.html',
+        lab: 'lab.html',
       },
       output: {
         entryFileNames: '[name].js',

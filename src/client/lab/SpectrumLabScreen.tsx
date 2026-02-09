@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 
 import type { SpectrumSubmission } from '../../shared/types';
 import type {
@@ -57,15 +57,14 @@ export const SpectrumLabScreen = () => {
   const sortedSubmissions = (() => {
     if (tab === 'newest') {
       return [...submissions].sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     }
     // default: "hot" – by score
     return [...submissions].sort((a, b) => b.score - a.score);
   })();
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const trimmedLeft = leftLabel.trim();
     const trimmedRight = rightLabel.trim();
@@ -83,7 +82,7 @@ export const SpectrumLabScreen = () => {
       const body: SpectrumLabSubmitRequest = {
         leftLabel: trimmedLeft,
         rightLabel: trimmedRight,
-        sampleClue: trimmedClue || undefined,
+        ...(trimmedClue && { sampleClue: trimmedClue }),
       };
 
       const res = await fetch('/api/spectrum-lab', {
@@ -149,193 +148,157 @@ export const SpectrumLabScreen = () => {
   };
 
   return (
-    <div className="flex h-full w-full flex-col items-center overflow-y-auto bg-slate-950/95 py-8 px-4 text-white">
-      <div className="w-full max-w-4xl">
-        <header className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight md:text-3xl">
-              Spectrum Lab
-            </h1>
-            <p className="mt-1 text-sm text-slate-300">
-              Submit and upvote new spectrums the community might play in future
-              daily games.
-            </p>
-          </div>
+    <div
+      className="relative flex h-full w-full flex-col items-center overflow-y-auto py-4 md:py-8 px-4 md:px-6"
+      style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)' }}
+    >
+      {/* Pattern overlay */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          backgroundImage:
+            'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)',
+          backgroundSize: '32px 32px',
+        }}
+      />
 
-          <div className="inline-flex gap-2 rounded-full bg-slate-900/80 p-1 text-xs font-semibold">
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1 ${
-                tab === 'hot'
-                  ? 'bg-amber-400 text-amber-950'
-                  : 'text-slate-300 hover:bg-slate-800'
-              }`}
-              onClick={() => setTab('hot')}
-            >
-              Hottest today
-            </button>
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1 ${
-                tab === 'newest'
-                  ? 'bg-amber-400 text-amber-950'
-                  : 'text-slate-300 hover:bg-slate-800'
-              }`}
-              onClick={() => setTab('newest')}
-            >
-              Newest
-            </button>
-          </div>
-        </header>
-
-        <section className="mb-8 rounded-2xl bg-slate-900/80 p-4 shadow-lg ring-1 ring-white/10">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.16em] text-slate-400">
-            Submit a spectrum
-          </h2>
-
-          <form
-            className="flex flex-col gap-3 md:flex-row md:items-end"
-            onSubmit={handleSubmit}
-          >
-            <div className="flex-1">
-              <label
-                htmlFor="spectrum-left-label"
-                className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400"
-              >
-                Left label
-              </label>
-              <input
-                id="spectrum-left-label"
-                value={leftLabel}
-                onChange={(event) => setLeftLabel(event.target.value)}
-                placeholder="Masterpiece"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-amber-400"
-              />
-            </div>
-
-            <div className="flex-1">
-              <label
-                htmlFor="spectrum-right-label"
-                className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400"
-              >
-                Right label
-              </label>
-              <input
-                id="spectrum-right-label"
-                value={rightLabel}
-                onChange={(event) => setRightLabel(event.target.value)}
-                placeholder="Trash"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-amber-400"
-              />
-            </div>
-
-            <div className="flex-1">
-              <label
-                htmlFor="spectrum-sample-clue"
-                className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400"
-              >
-                Sample clue (optional)
-              </label>
-              <input
-                id="spectrum-sample-clue"
-                value={sampleClue}
-                onChange={(event) => setSampleClue(event.target.value)}
-                placeholder="This movie&apos;s twist ending"
-                className="w-full rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-amber-400"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-2 inline-flex items-center justify-center rounded-2xl bg-amber-400 px-4 py-2 text-sm font-black uppercase tracking-wide text-amber-950 shadow-md transition hover:bg-amber-300 disabled:opacity-60 md:mt-0"
-            >
-              {submitting ? 'Submitting…' : 'Submit'}
-            </button>
-          </form>
-
-          {error && (
-            <p className="mt-3 text-xs font-semibold text-red-300">{error}</p>
-          )}
-        </section>
-
-        <section className="space-y-3">
-          {loading && (
-            <div className="rounded-xl bg-slate-900/60 p-4 text-sm text-slate-200">
-              Loading community spectrums…
-            </div>
-          )}
-
-          {!loading && sortedSubmissions.length === 0 && (
-            <div className="rounded-xl bg-slate-900/60 p-4 text-sm text-slate-300">
-              No spectrums in the lab yet. Be the first to submit one for this
-              subreddit!
-            </div>
-          )}
-
-          {sortedSubmissions.map((submission) => (
-            <article
-              key={submission.id}
-              className="flex flex-col gap-3 rounded-2xl bg-slate-900/80 p-4 text-sm ring-1 ring-white/5 md:flex-row md:items-center md:justify-between"
-            >
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-2 rounded-full bg-slate-800/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-300">
-                  <span>{submission.leftLabel}</span>
-                  <span className="text-slate-500">↔</span>
-                  <span>{submission.rightLabel}</span>
-                </div>
-                {submission.sampleClue && (
-                  <p className="text-xs text-slate-300">
-                    <span className="font-semibold text-slate-400">
-                      Sample clue:{' '}
-                    </span>
-                    {submission.sampleClue}
-                  </p>
-                )}
-                <p className="text-[11px] text-slate-500">
-                  Submitted{' '}
-                  {new Date(submission.createdAt).toLocaleDateString(undefined, {
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between gap-3 md:justify-end">
-                <div className="flex items-center gap-2 rounded-full bg-slate-800/80 px-3 py-1 text-xs font-semibold">
-                  <button
-                    type="button"
-                    onClick={() => handleVote(submission.id, 'up')}
-                    disabled={votingId === submission.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-1 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-60"
-                  >
-                    <span>▲</span>
-                    <span>{submission.upvotes}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleVote(submission.id, 'down')}
-                    disabled={votingId === submission.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 px-2 py-1 text-rose-300 hover:bg-rose-500/30 disabled:opacity-60"
-                  >
-                    <span>▼</span>
-                    <span>{submission.downvotes}</span>
-                  </button>
-                </div>
-                <div className="text-right text-xs">
-                  <p className="font-bold text-amber-300">
-                    Score {submission.score >= 0 ? '+' : ''}
-                    {submission.score}
-                  </p>
-                  <p className="text-[10px] text-slate-400">Lab heat</p>
-                </div>
-              </div>
-            </article>
-          ))}
-        </section>
+      {/* Gradient blobs */}
+      <div className="fixed bottom-0 left-0 w-full h-32 md:h-64 pointer-events-none overflow-hidden opacity-50">
+        <div className="absolute -bottom-10 -left-10 w-48 md:w-64 h-48 md:h-64 bg-pink-400/20 rounded-full blur-3xl" />
+        <div className="absolute -bottom-10 -right-10 w-48 md:w-64 h-48 md:h-64 bg-cyan-400/20 rounded-full blur-3xl" />
       </div>
+
+      <main className="relative z-10 w-full max-w-2xl">
+        {/* Header */}
+        <div className="text-center mb-6 md:mb-10">
+          <h1 className="text-white font-black text-3xl md:text-5xl lg:text-6xl tracking-tighter uppercase italic drop-shadow-lg">
+            Create a Spectrum
+          </h1>
+          <p className="text-white/80 font-bold text-sm md:text-lg tracking-wide uppercase mt-2">
+            Submit your idea to the community
+          </p>
+        </div>
+
+        {/* Form Card */}
+        <div
+          className="w-full p-6 md:p-8 lg:p-12 flex flex-col gap-6 md:gap-8"
+          style={{
+            background: 'rgba(255, 255, 255, 0.15)',
+            backdropFilter: 'blur(20px)',
+            border: '2px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+            borderRadius: '2.5rem',
+          }}
+        >
+          {/* Preview Dial */}
+          <div className="flex flex-col items-center">
+            <div className="relative w-48 md:w-64 h-24 md:h-32 overflow-hidden mb-3 md:mb-4">
+              <div
+                className="absolute inset-0 shadow-inner"
+                style={{
+                  background:
+                    'conic-gradient(from 270deg at 50% 100%, #2dd4bf, #fbbf24, #f97316, #ef4444)',
+                  mask: 'radial-gradient(circle at 50% 100%, transparent 45%, black 46%)',
+                  WebkitMask: 'radial-gradient(circle at 50% 100%, transparent 45%, black 46%)',
+                  borderRadius: '50% 50% 0 0',
+                }}
+              />
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-[80%] bg-white rounded-t-full shadow-lg z-20" />
+            </div>
+            <div className="flex justify-between w-48 md:w-64 text-white font-black uppercase text-[10px] md:text-xs tracking-widest px-2">
+              <span className="truncate max-w-[45%]">{leftLabel || 'Left Label'}</span>
+              <span className="truncate max-w-[45%] text-right">{rightLabel || 'Right Label'}</span>
+            </div>
+          </div>
+
+          {/* Form Fields */}
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
+            <div className="space-y-2">
+              <label className="text-white/70 font-bold text-xs md:text-sm uppercase tracking-widest ml-1">
+                Left Label
+              </label>
+              <input
+                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-base md:text-lg transition-all focus:border-teal-400 focus:outline-none"
+                placeholder="e.g. Weak Coffee"
+                type="text"
+                value={leftLabel}
+                onChange={(e) => setLeftLabel(e.target.value)}
+                maxLength={50}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-white/70 font-bold text-xs md:text-sm uppercase tracking-widest ml-1">
+                Right Label
+              </label>
+              <input
+                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-base md:text-lg transition-all focus:border-teal-400 focus:outline-none"
+                placeholder="e.g. Rocket Fuel"
+                type="text"
+                value={rightLabel}
+                onChange={(e) => setRightLabel(e.target.value)}
+                maxLength={50}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-white/70 font-bold text-xs md:text-sm uppercase tracking-widest ml-1">
+                Optional Clue
+              </label>
+              <input
+                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-base md:text-lg italic transition-all focus:border-teal-400 focus:outline-none"
+                placeholder="e.g. Espresso Shot"
+                type="text"
+                value={sampleClue}
+                onChange={(e) => setSampleClue(e.target.value)}
+                maxLength={50}
+              />
+            </div>
+
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-3 md:p-4">
+                <p className="text-red-200 text-sm md:text-base font-medium">{error}</p>
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div className="flex flex-col gap-3 md:gap-4 pt-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full chunky-button-yellow py-4 md:py-6 rounded-3xl flex items-center justify-center gap-2 md:gap-3 transition-all disabled:opacity-50"
+                onMouseDown={(e) => {
+                  if (!submitting) {
+                    e.currentTarget.style.transform = 'translateY(3px)';
+                    e.currentTarget.style.boxShadow = '0 3px 0px #c2410c';
+                  }
+                }}
+                onMouseUp={(e) => {
+                  e.currentTarget.style.transform = '';
+                  e.currentTarget.style.boxShadow = '0 6px 0px #c2410c';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = '';
+                  e.currentTarget.style.boxShadow = '0 6px 0px #c2410c';
+                }}
+              >
+                <span className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white">
+                  {submitting ? 'Submitting...' : 'Submit'}
+                </span>
+              </button>
+              <button className="outline-button w-full  py-4 md:py-6 rounded-3xl flex items-center justify-center gap-2 md:gap-3 text-center text-white font-black uppercase text-xl tracking-widest">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Info Text */}
+        <p className="text-center text-white/50 text-xs md:text-sm px-4 md:px-8 leading-relaxed font-medium">
+          Your submission will be reviewed by the community. Popular spectrums may be featured in
+          future games!
+        </p>
+      </main>
     </div>
   );
 };
-
-
