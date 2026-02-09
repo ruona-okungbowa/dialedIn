@@ -30,28 +30,34 @@ const ThemeToggle = () => {
 const AppContent = () => {
   const [view, setView] = useState<View>('game');
   const [results, setResults] = useState<GuessResult[] | null>(null);
+  const [gameKey, setGameKey] = useState(0); // Force remount when starting new game
 
   const handleGameComplete = (gameResults: GuessResult[]) => {
     setResults(gameResults);
     setView('results');
   };
 
+  const handlePlayAgain = () => {
+    setGameKey((prev) => prev + 1); // Force GameScreen to remount with fresh state
+    setView('game');
+  };
+
   const renderView = () => {
     switch (view) {
       case 'results':
-        return <ResultsScreen results={results} onPlayAgain={() => setView('game')} />;
+        return <ResultsScreen results={results} onPlayAgain={handlePlayAgain} />;
       case 'lab':
         return <SpectrumLabScreen />;
       case 'hof':
         return <HallOfFameScreen />;
       case 'game':
       default:
-        return <GameScreen onGameComplete={handleGameComplete} />;
+        return <GameScreen key={gameKey} onGameComplete={handleGameComplete} />;
     }
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden transition-colors duration-300">
+    <div className="flex h-screen flex-col bg-transparent overflow-hidden transition-colors duration-300">
       {/* <header className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex-shrink-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
         <div className="flex flex-col">
           <span className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -76,49 +82,6 @@ const AppContent = () => {
       </header> */}
 
       <main className="flex flex-1 flex-col overflow-hidden page-transition">{renderView()}</main>
-
-      <nav className="flex border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <button
-          className={`flex-1 py-3 text-xs font-semibold transition-colors touch-manipulation ${
-            view === 'game'
-              ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30'
-              : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-          }`}
-          onClick={() => setView('game')}
-        >
-          Game
-        </button>
-        <button
-          className={`flex-1 py-3 text-xs font-semibold transition-colors touch-manipulation ${
-            view === 'results'
-              ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30'
-              : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-          }`}
-          onClick={() => setView('results')}
-        >
-          Results
-        </button>
-        <button
-          className={`flex-1 py-3 text-xs font-semibold transition-colors touch-manipulation ${
-            view === 'lab'
-              ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30'
-              : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-          }`}
-          onClick={() => setView('lab')}
-        >
-          Lab
-        </button>
-        <button
-          className={`flex-1 py-3 text-xs font-semibold transition-colors touch-manipulation ${
-            view === 'hof'
-              ? 'text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30'
-              : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-          }`}
-          onClick={() => setView('hof')}
-        >
-          HoF
-        </button>
-      </nav>
     </div>
   );
 };

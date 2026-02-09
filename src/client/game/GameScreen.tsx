@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DailyGame, GuessResult } from '../../shared/types';
 import type { DailyGameResponse, GuessResponse } from '../../shared/types/api';
 import { useSoundHaptics } from '../hooks/useSoundHaptics';
+import { useGameState } from '../hooks/useGameState';
 import { RevealScreen } from './RevealScreen';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -22,7 +23,9 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
   const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('playing');
   const [submitting, setSubmitting] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const { playSound, triggerHapticFeedback } = useSoundHaptics();
+  const { saveState, loadState, clearState } = useGameState();
   const lastDialValueRef = useRef(50);
   const dialThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -65,21 +68,44 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
         if (cancelled) return;
 
         setGame(data.game);
+        const gameId = `${data.game.date}-${data.game.subredditId}`;
 
-        if (data.priorResults?.length) {
-          setRoundResults(data.priorResults);
+        // Priority 1: Try to restore from localStorage (for same session/device)
+        const savedState = loadState(gameId);
 
-          if (data.priorResults.length >= 3) {
+        // Priority 2: Fall back to server-side results (for cross-device or after clearing localStorage)
+        const resultsToRestore = savedState?.roundResults.length
+          ? savedState.roundResults
+          : (data.priorResults ?? []);
+
+        if (resultsToRestore.length > 0) {
+          setRoundResults(resultsToRestore);
+
+          // If game is complete (all 3 rounds done)
+          if (resultsToRestore.length >= 3) {
             setPhase('finished');
-            onGameComplete(data.priorResults);
-            return;
-          }
+            onGameComplete(resultsToRestore);
+          } else {
+            // Resume from where user left off
+            const nextRoundIndex = resultsToRestore.length;
+            setCurrentRoundIndex(nextRoundIndex);
 
-          const nextRoundIndex = data.priorResults.length;
-          setCurrentRoundIndex(nextRoundIndex);
-          setDialValue(
-            clamp(data.priorResults[data.priorResults.length - 1]?.dialValue ?? 50, 0, 100)
-          );
+            // Restore dial to saved position, or last guess position, or default to 50
+            const dialToRestore =
+              savedState?.dialValue ??
+              resultsToRestore[resultsToRestore.length - 1]?.dialValue ??
+              50;
+            setDialValue(clamp(dialToRestore, 0, 100));
+            setPhase('playing');
+          }
+        } else if (savedState) {
+          // No completed rounds but we have saved state (user was adjusting dial)
+          setCurrentRoundIndex(savedState.currentRoundIndex);
+          setDialValue(clamp(savedState.dialValue, 0, 100));
+          setPhase('playing');
+        } else {
+          // Fresh game - clear any old localStorage state from previous days
+          clearState();
         }
       } catch (e) {
         if (cancelled) return;
@@ -96,7 +122,8 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
     return () => {
       cancelled = true;
     };
-  }, [onGameComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   const handleSubmitGuess = async () => {
     if (!game || currentRoundIndex > 2 || submitting || phase !== 'playing') {
@@ -130,7 +157,35 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
 
       setRoundResults((prev) => {
         const filtered = prev.filter((r) => r.roundIndex !== result.roundIndex);
-        return [...filtered, result].sort((a, b) => a.roundIndex - b.roundIndex);
+        const updated = [...filtered, result].sort((a, b) => a.roundIndex - b.roundIndex);
+
+        // Save state after guess to localStorage and server
+        if (game) {
+          const totalScore = updated.reduce((sum, r) => sum + (r.score ?? 0), 0);
+          saveState({
+            gameId: `${game.date}-${game.subredditId}`,
+            currentRoundIndex,
+            roundResults: updated,
+            dialValue,
+            gameStatus: 'round_end',
+            totalScore,
+          });
+
+          // Save to server for cross-device persistence
+          fetch('/api/save-game-state', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              currentRoundIndex,
+              dialValue,
+              gameStatus: 'round_end',
+            }),
+          }).catch((e) => console.error('Failed to save game state to server:', e));
+        }
+
+        return updated;
       });
 
       // Play reveal sound after a short delay
@@ -153,6 +208,33 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
       playSound('success');
       triggerHapticFeedback([20, 30, 20]);
       setPhase('finished');
+
+      // Save final state before completing game (don't clear yet - user might refresh on results)
+      if (game) {
+        const totalScore = roundResults.reduce((sum, r) => sum + (r.score ?? 0), 0);
+        saveState({
+          gameId: `${game.date}-${game.subredditId}`,
+          currentRoundIndex: 2,
+          roundResults,
+          dialValue: 50,
+          gameStatus: 'game_over',
+          totalScore,
+        });
+
+        // Save to server for cross-device persistence
+        fetch('/api/save-game-state', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            currentRoundIndex: 2,
+            dialValue: 50,
+            gameStatus: 'game_over',
+          }),
+        }).catch((e) => console.error('Failed to save game state to server:', e));
+      }
+
       onGameComplete(roundResults);
       return;
     }
@@ -164,6 +246,32 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
     setPhase('playing');
     setDialValue(50);
     lastDialValueRef.current = 50;
+
+    // Save state after moving to next round
+    if (game) {
+      const totalScore = roundResults.reduce((sum, r) => sum + (r.score ?? 0), 0);
+      saveState({
+        gameId: `${game.date}-${game.subredditId}`,
+        currentRoundIndex: nextIndex,
+        roundResults,
+        dialValue: 50,
+        gameStatus: 'playing',
+        totalScore,
+      });
+
+      // Save to server for cross-device persistence
+      fetch('/api/save-game-state', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentRoundIndex: nextIndex,
+          dialValue: 50,
+          gameStatus: 'playing',
+        }),
+      }).catch((e) => console.error('Failed to save game state to server:', e));
+    }
   };
 
   // Handle dial movement with throttled sound/haptic feedback
@@ -191,11 +299,101 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
     };
   }, [dialValue, phase, playSound, triggerHapticFeedback]);
 
+  // Ensure dragging state is cleared if the pointer/touch ends outside the input
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const clear = () => setIsDragging(false);
+
+    window.addEventListener('pointerup', clear);
+    window.addEventListener('touchend', clear);
+
+    return () => {
+      window.removeEventListener('pointerup', clear);
+      window.removeEventListener('touchend', clear);
+    };
+  }, [isDragging]);
+
+  // Save dial position to localStorage and server when user stops moving it (debounced)
+  useEffect(() => {
+    if (phase !== 'playing' || !game) return;
+
+    const saveTimer = setTimeout(async () => {
+      const totalScore = roundResults.reduce((sum, r) => sum + (r.score ?? 0), 0);
+
+      // Save to localStorage
+      saveState({
+        gameId: `${game.date}-${game.subredditId}`,
+        currentRoundIndex,
+        roundResults,
+        dialValue,
+        gameStatus: 'playing',
+        totalScore,
+      });
+
+      // Save to server (Redis) for cross-device persistence
+      try {
+        await fetch('/api/save-game-state', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            currentRoundIndex,
+            dialValue,
+            gameStatus: 'playing',
+          }),
+        });
+      } catch (e) {
+        console.error('Failed to save game state to server:', e);
+        // Don't show error to user, localStorage still works
+      }
+    }, 500); // Save 500ms after user stops moving dial
+
+    return () => clearTimeout(saveTimer);
+  }, [dialValue, phase, game, currentRoundIndex, roundResults, saveState]);
+
   if (loading) {
     return (
-      <div className="relative flex min-h-screen w-full flex-col items-center justify-center gap-4 py-8 px-6">
-        <div className="text-sm font-medium text-white/80 dark:text-slate-300 fade-in">
-          Loading today&apos;s dial...
+      <div className="relative flex flex-col items-center justify-center min-h-screen overflow-hidden">
+        <div className="fixed inset-0 vibrant-pattern pointer-events-none"></div>
+        <div className="absolute top-[-5%] left-[-5%] w-[40%] h-[40%] bg-teal-400/20 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-[-5%] right-[-5%] w-[40%] h-[40%] bg-orange-500/20 rounded-full blur-[100px]"></div>
+        <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="relative mb-12">
+            <div className="loading-circle w-48 h-48 md:w-64 md:h-64 rounded-full flex items-center justify-center relative">
+              <div className="absolute inset-4 bg-white/10 backdrop-blur-md rounded-full border-4 border-white/20"></div>
+              <div className="spinning-needle absolute bottom-1/2 left-1/2 -translate-x-1/2 w-4 h-[45%] md:h-[45%] z-20">
+                <div className="w-full h-full bg-red-500 rounded-t-full border-2 border-white shadow-lg relative">
+                  <div className="absolute top-2 left-1/2 -translate-x-1/2 w-1 h-8 bg-white/40 rounded-full"></div>
+                </div>
+              </div>
+              <div className="absolute w-12 h-12 bg-slate-800 rounded-full border-4 border-white z-30 shadow-xl flex items-center justify-center">
+                <div className="w-2 h-2 bg-white rounded-full"></div>
+              </div>
+            </div>
+            <div className="absolute -inset-8 bg-white/20 blur-3xl rounded-full -z-10 animate-pulse"></div>
+          </div>
+          <h1
+            className="text-white text-4xl md:text-5xl uppercase tracking-tight mb-4 font-black"
+            style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+          >
+            Loading Game...
+          </h1>
+          <div className="pulse-text flex flex-col items-center gap-4">
+            <p className="text-white/80 font-bold text-lg md:text-xl">
+              Finding the perfect wavelength for you...
+            </p>
+            <div className="flex gap-3">
+              <div className="w-4 h-4 bg-teal-400 rounded-full"></div>
+              <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
+              <div className="w-4 h-4 bg-orange-500 rounded-full"></div>
+            </div>
+          </div>
+        </div>
+        <div className="fixed bottom-0 left-0 w-full h-1/4 pointer-events-none overflow-hidden">
+          <div className="absolute -bottom-20 -left-20 w-96 h-96 bg-pink-400/20 rounded-full blur-[120px]"></div>
+          <div className="absolute -bottom-20 -right-20 w-96 h-96 bg-cyan-400/20 rounded-full blur-[120px]"></div>
         </div>
       </div>
     );
@@ -203,37 +401,73 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
 
   if (error || !game || !currentRound) {
     return (
-      <div className="relative flex min-h-screen w-full flex-col items-center justify-center gap-4 py-8 px-6">
-        <p className="text-sm font-semibold text-red-200 dark:text-red-300">
-          {error ?? 'Something went wrong loading the daily game.'}
-        </p>
-        <button
-          className="rounded-full bg-white/10 dark:bg-slate-800/80 px-4 py-2 text-xs font-semibold text-white dark:text-slate-200 hover:bg-white/20 dark:hover:bg-slate-700 transition-colors touch-manipulation"
-          onClick={() => globalThis.location?.reload()}
-        >
-          Try again
-        </button>
+      <div className="relative flex flex-col items-center justify-center py-8 px-6 overflow-hidden">
+        <div className="fixed inset-0 vibrant-pattern pointer-events-none"></div>
+        <div className="absolute top-1/4 left-10 w-64 h-64 bg-indigo-900/30 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-1/4 right-10 w-64 h-64 bg-purple-900/30 rounded-full blur-[100px]"></div>
+        <main className="relative z-10 w-full max-w-2xl flex flex-col items-center text-center gap-12">
+          <div className="relative flex flex-col items-center">
+            <div className="glitch-dial flex items-end justify-center pb-4">
+              <div className="glitch-line top-1/4 left-0"></div>
+              <div className="glitch-line top-1/2 left-4 w-3/4"></div>
+              <div className="glitch-line top-2/3 right-0 w-1/2"></div>
+              <div className="flex flex-col items-center mb-4">
+                <div className="flex gap-8 mb-2">
+                  <div className="w-3 h-3 bg-white/40 rounded-full"></div>
+                  <div className="w-3 h-3 bg-white/40 rounded-full"></div>
+                </div>
+                <div className="w-12 h-4 border-t-4 border-white/40 rounded-[50%]"></div>
+              </div>
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2 h-24 bg-red-500/40 origin-bottom rotate-[75deg] rounded-full"></div>
+            </div>
+            <div className="w-32 h-12 bg-indigo-950 border-x-8 border-b-8 border-white/10 rounded-b-3xl"></div>
+            <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-30">
+              <div className="absolute top-10 left-10 w-1 h-1 bg-white rounded-full"></div>
+              <div className="absolute top-20 right-20 w-1 h-1 bg-white rounded-full"></div>
+              <div className="absolute bottom-5 left-1/2 w-1 h-1 bg-white rounded-full"></div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-4">
+            <h1 className="bungee-font text-5xl md:text-7xl text-white tracking-tighter drop-shadow-2xl">
+              LOST THE <br />
+              <span className="text-orange-400">SIGNAL...</span>
+            </h1>
+            <p className="text-white/70 text-lg md:text-xl font-medium max-w-md mx-auto leading-relaxed">
+              {error ??
+                "We couldn't reach the mental frequency. Please check your connection or try again."}
+            </p>
+          </div>
+          <div className="w-full max-w-sm">
+            <button
+              onClick={() => globalThis.location?.reload()}
+              className="chunky-button-orange w-full py-6 rounded-3xl flex items-center justify-center gap-4 group"
+            >
+              <span className="text-2xl font-black uppercase tracking-tight text-white drop-shadow-md">
+                Test Your Wavelength
+              </span>
+              <span className="material-symbols-outlined text-4xl text-white group-hover:rotate-180 transition-transform duration-500">
+                sync
+              </span>
+            </button>
+          </div>
+        </main>
+        <div className="fixed bottom-0 left-0 w-full h-1/4 pointer-events-none overflow-hidden">
+          <div className="absolute -bottom-10 -left-10 w-96 h-96 bg-indigo-900/40 rounded-full blur-[120px]"></div>
+          <div className="absolute -bottom-10 -right-10 w-96 h-96 bg-pink-900/40 rounded-full blur-[120px]"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="relative flex flex-col items-center justify-start min-h-screen py-4 bg-gradient-purple-pink px-4 overflow-auto pb-6">
+    <div className="relative flex flex-col items-center justify-start h-full py-4 bg-gradient-purple-pink px-4 overflow-hidden pb-6">
       <div className="fixed inset-0 vibrant-pattern pointer-events-none"></div>
       <div className="absolute top-[-5%] left-[-5%] w-[30%] h-[30%] bg-teal-400/20 rounded-full blur-[80px]"></div>
       <div className="absolute bottom-[-5%] right-[-5%] w-[30%] h-[30%] bg-orange-500/20 rounded-full blur-[80px]"></div>
-      <div className="floating-shape top-1/4 left-12 rotate-12">
-        <div className="w-16 h-16 border-8 border-white/30 rounded-2xl"></div>
-      </div>
-      <div className="floating-shape bottom-1/4 right-12 -rotate-12">
-        <div className="w-20 h-20 border-8 border-white/30 rounded-full"></div>
-      </div>
       <div className="relative z-10 w-full max-w-5xl flex justify-between items-start mb-2">
         <div className="flex flex-col gap-2">
           <div className="stat-badge px-3 py-1 flex items-center gap-2">
-            <span className="text-white font-bold text-sm tracking-tight">
-              Score:{totalScore}
-            </span>
+            <span className="text-white font-bold text-sm tracking-tight">Score: {totalScore}</span>
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -246,9 +480,7 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
                 <div
                   key={i}
                   className={`w-3 h-1 rounded-full ${
-                    roundResults.some((r) => r.roundIndex === i)
-                      ? 'bg-teal-400'
-                      : 'bg-white/20'
+                    roundResults.some((r) => r.roundIndex === i) ? 'bg-teal-400' : 'bg-white/20'
                   }`}
                 ></div>
               ))}
@@ -295,7 +527,9 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
                 <h2 className="text-xl md:text-2xl font-black text-indigo-600 tracking-tight uppercase">
                   {currentRound.clue}
                 </h2>
-                <p className="text-slate-500 font-semibold text-[10px] mt-0.5">sit on this scale?</p>
+                <p className="text-slate-500 font-semibold text-[10px] mt-0.5">
+                  sit on this scale?
+                </p>
               </div>
             </div>
             <div className="relative w-full flex flex-col items-center mt-1">
@@ -310,7 +544,7 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
                     style={{
                       transform: `rotate(${angle}deg)`,
                       transformOrigin: 'bottom center',
-                      transition: 'transform 0.12s linear',
+                      transition: isDragging ? 'none' : 'transform 0.12s linear',
                     }}
                   >
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 w-1 h-8 bg-white/30 rounded-full"></div>
@@ -329,8 +563,20 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
                   max={100}
                   min={0}
                   onChange={(e) => setDialValue(Number((e.target as HTMLInputElement).value))}
+                  onInput={(e) => setDialValue(Number((e.currentTarget as HTMLInputElement).value))}
+                  onPointerDown={() => setIsDragging(true)}
+                  onPointerUp={() => setIsDragging(false)}
+                  onPointerCancel={() => setIsDragging(false)}
+                  onTouchStart={() => setIsDragging(true)}
+                  onTouchEnd={() => setIsDragging(false)}
+                  style={{ touchAction: 'none' }}
                   className="w-full h-2.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-yellow-400 border-2 border-white/10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:h-7 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:cursor-pointer md:[&::-webkit-slider-thumb]:w-8 md:[&::-webkit-slider-thumb]:h-8 md:[&::-webkit-slider-thumb]:border-4 [&::-moz-range-thumb]:w-7 [&::-moz-range-thumb]:h-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-yellow-400 [&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-lg [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none md:[&::-moz-range-thumb]:w-8 md:[&::-moz-range-thumb]:h-8"
                   aria-label="Dial value"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={dialValue}
+                  aria-valuetext={`${dialValue} out of 100, leaning ${dialValue < 30 ? 'left' : dialValue > 70 ? 'right' : 'center'}`}
+                  role="slider"
                 />
                 <div className="flex justify-between mt-1 text-white/60 font-bold text-[9px] uppercase tracking-wider">
                   <span>Leaning Left</span>

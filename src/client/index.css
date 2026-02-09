@@ -14,18 +14,74 @@
   body {
     @apply overflow-hidden;
     background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
-    font-family: 'Fredoka', sans-serif;
+    font-family:
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
     transition: background 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-
-  .dark body {
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #581c87 100%);
+  
+  /* Prevent inline scrolling inside webviews on mobile */
+  html,
+  body,
+  #root {
+    height: 100%;
+    overscroll-behavior-y: none;
   }
 }
 
 @layer utilities {
   .bg-gradient-purple-pink {
     background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  }
+
+  .loading-circle {
+    background: conic-gradient(from 0deg, #2dd4bf, #fbbf24, #f97316, #ef4444, #2dd4bf);
+    border: 8px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
+  }
+  .spinning-needle {
+    transform-origin: bottom center;
+    animation: spin-rapid 0.6s linear infinite;
+  }
+  @keyframes spin-rapid {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .bubbly-text {
+    font-family: 'Bungee', cursive;
+    text-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+  }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    border-radius: 3rem;
+  }
+  .pulse-text {
+    animation: pulse-soft 2s ease-in-out infinite;
+  }
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 0.6;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.05);
+
+      /* Prevent inline scrolling inside webviews on mobile. Ensure root fills viewport. */
+      .safe-area-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+    }
   }
 
   .vibrant-pattern {
@@ -44,6 +100,41 @@
     box-shadow:
       inset 0 0 50px rgba(0, 0, 0, 0.5),
       0 10px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .error-card {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 3rem;
+  }
+  .glitch-dial {
+    position: relative;
+    width: 280px;
+    height: 140px;
+    background: #1e1b4b;
+    border-radius: 140px 140px 0 0;
+    border: 8px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+  }
+  .glitch-line {
+    position: absolute;
+    background: var(--glitch-color);
+    height: 2px;
+    width: 100%;
+    opacity: 0.5;
+  }
+  .chunky-button-orange {
+    background: var(--game-orange);
+    box-shadow: 0 10px 0px var(--button-shadow-orange);
+    transition: all 0.1s ease;
+  }
+  .chunky-button-orange:active {
+    transform: translateY(4px);
+    box-shadow: 0 6px 0px var(--button-shadow-orange);
+  }
+  .bungee-font {
+    font-family: 'Bungee', cursive;
   }
 
   .prompt-card {
@@ -80,11 +171,6 @@
     backdrop-filter: blur(12px);
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 1.5rem;
-  }
-  .floating-shape {
-    position: absolute;
-    z-index: 0;
-    opacity: 0.4;
   }
 
   .marker-container {
@@ -214,6 +300,13 @@
     .chunky-button {
       padding: 1rem 1.5rem;
       font-size: 1.125rem;
+    }
+    
+    /* Disable text selection on interactive elements */
+    button, input[type="range"] {
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
   }
 

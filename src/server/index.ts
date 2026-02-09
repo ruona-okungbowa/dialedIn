@@ -13,6 +13,8 @@ import {
   SpectrumLabVoteRequest,
   SpectrumLabVoteResponse,
   UserStatsResponse,
+  SaveGameStateRequest,
+  SaveGameStateResponse,
 } from '../shared/types/api';
 import { redis, reddit, createServer, context, getServerPort } from '@devvit/web/server';
 import { createPost } from './core/post';
@@ -78,6 +80,9 @@ const guessBucketsKey = (date: string, subredditKey: string, roundIndex: number)
 
 const userResultsKey = (date: string, subredditKey: string, userKey: string): string =>
   `userResults:${date}:${subredditKey}:${userKey}`;
+
+const userGameStateKey = (date: string, subredditKey: string, userKey: string): string =>
+  `userGameState:${date}:${subredditKey}:${userKey}`;
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
@@ -287,6 +292,41 @@ const saveUserResultsForToday = async (
   await redis.set(key, JSON.stringify(results));
 };
 
+type UserGameState = {
+  currentRoundIndex: number;
+  dialValue: number;
+  gameStatus: 'playing' | 'round_end' | 'game_over';
+  lastUpdated: string;
+};
+
+const getUserGameStateForToday = async (
+  subredditKey: string,
+  userKey: string
+): Promise<UserGameState | null> => {
+  const date = getTodayDate();
+  const key = userGameStateKey(date, subredditKey, userKey);
+  const raw = await redis.get(key);
+
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as UserGameState;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
+
+const saveUserGameStateForToday = async (
+  subredditKey: string,
+  userKey: string,
+  state: UserGameState
+): Promise<void> => {
+  const date = getTodayDate();
+  const key = userGameStateKey(date, subredditKey, userKey);
+  await redis.set(key, JSON.stringify(state));
+};
+
 const getBucketsForToday = async (subredditKey: string, roundIndex: number): Promise<number[]> => {
   const date = getTodayDate();
   const key = guessBucketsKey(date, subredditKey, roundIndex);
@@ -430,7 +470,10 @@ router.get<{}, DailyGameResponse | { status: string; message: string }>(
     try {
       const [game, userKey] = await Promise.all([getOrCreateDailyGame(subredditKey), getUserKey()]);
 
-      const priorResults = await getUserResultsForToday(subredditKey, userKey);
+      const [priorResults, savedGameState] = await Promise.all([
+        getUserResultsForToday(subredditKey, userKey),
+        getUserGameStateForToday(subredditKey, userKey),
+      ]);
 
       const response: DailyGameResponse = {
         type: 'daily-game',
@@ -439,6 +482,14 @@ router.get<{}, DailyGameResponse | { status: string; message: string }>(
 
       if (priorResults.length) {
         response.priorResults = priorResults;
+      }
+
+      if (savedGameState) {
+        response.savedGameState = {
+          currentRoundIndex: savedGameState.currentRoundIndex,
+          dialValue: savedGameState.dialValue,
+          gameStatus: savedGameState.gameStatus,
+        };
       }
 
       res.json(response);
@@ -568,6 +619,66 @@ router.post<{}, GuessResponse | { status: string; message: string }, GuessReques
       res.status(500).json({
         status: 'error',
         message: 'Failed to submit guess',
+      });
+    }
+  }
+);
+
+router.post<{}, SaveGameStateResponse | { status: string; message: string }, SaveGameStateRequest>(
+  '/api/save-game-state',
+  async (req, res): Promise<void> => {
+    const { currentRoundIndex, dialValue, gameStatus } = req.body ?? {};
+
+    if (
+      typeof currentRoundIndex !== 'number' ||
+      !Number.isInteger(currentRoundIndex) ||
+      currentRoundIndex < 0 ||
+      currentRoundIndex > 2
+    ) {
+      res.status(400).json({
+        status: 'error',
+        message: 'currentRoundIndex must be an integer between 0 and 2',
+      });
+      return;
+    }
+
+    if (typeof dialValue !== 'number' || Number.isNaN(dialValue)) {
+      res.status(400).json({
+        status: 'error',
+        message: 'dialValue must be a number',
+      });
+      return;
+    }
+
+    if (!['playing', 'round_end', 'game_over'].includes(gameStatus)) {
+      res.status(400).json({
+        status: 'error',
+        message: 'gameStatus must be playing, round_end, or game_over',
+      });
+      return;
+    }
+
+    const subredditKey = getSubredditKey();
+
+    try {
+      const userKey = await getUserKey();
+
+      await saveUserGameStateForToday(subredditKey, userKey, {
+        currentRoundIndex,
+        dialValue,
+        gameStatus,
+        lastUpdated: new Date().toISOString(),
+      });
+
+      res.json({
+        type: 'save-game-state',
+        success: true,
+      });
+    } catch (error) {
+      console.error('API Save Game State Error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Failed to save game state',
       });
     }
   }
@@ -916,15 +1027,15 @@ router.post('/internal/clear-cache', async (_req, res): Promise<void> => {
   try {
     const date = getTodayDate();
     const subredditKey = getSubredditKey();
-    
+
     // Clear daily game
     await redis.del(dailyGameKey(date, subredditKey));
-    
+
     // Clear guess buckets for all rounds
     for (let i = 0; i < 3; i++) {
       await redis.del(guessBucketsKey(date, subredditKey, i));
     }
-    
+
     res.json({
       status: 'success',
       message: 'Cache cleared successfully',

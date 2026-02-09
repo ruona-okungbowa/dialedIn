@@ -24,7 +24,7 @@ export const Splash = () => {
         <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center justify-center w-full">
           {/* Dial on the left */}
           <div className="flex flex-col items-center justify-center relative flex-shrink-0">
-            <div className="relative w-[200px] md:w-[250px] aspect-[1/0.6] flex flex-col items-center">
+            <div className="relative w-[130px] md:w-[250px] aspect-[1/0.6] flex flex-col items-center">
               <div className="relative w-full h-full overflow-hidden rounded-t-full physical-dial-base border-x-4 border-t-4 border-slate-200">
                 <div className="absolute inset-0 bg-white/5 pointer-events-none"></div>
                 <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[90%] h-[90%] bg-[#efebe1] rounded-t-full shadow-inner flex items-end justify-center overflow-hidden">
@@ -47,12 +47,19 @@ export const Splash = () => {
           </div>
           {/* Text content on the right */}
           <div className="flex flex-col items-center md:items-start text-center md:text-left">
-            <h1 className="title-3d text-5xl md:text-7xl font-black uppercase mb-4 md:mb-6">
-              Dial <br />
-              it in
+            <h1
+              className="text-6xl md:text-7xl font-black uppercase mb-4 md:mb-6 text-white"
+              style={{
+                fontFamily: 'system-ui, -apple-system, sans-serif',
+                letterSpacing: '0.05em',
+              }}
+            >
+              DIAL
+              <br />
+              IT IN
             </h1>
             <div className="space-y-4 max-w-md">
-              <div className="bg-white/10 backdrop-blur-lg p-3 md:p-4 rounded-2xl border-2 border-white/20">
+              <div className="bg-white/10 backdrop-blur-lg p-2 md:p-4 rounded-2xl border-2 border-white/20">
                 <p className="text-lg md:text-xl font-bold text-white mb-1 leading-tight">
                   Are you on the same <span className="text-yellow-300">Wavelength</span>
                 </p>
@@ -62,19 +69,19 @@ export const Splash = () => {
               </div>
               <div className="pt-4 flex-col flex gap-4 w-full">
                 <button
-                  className="chunky-button group w-full md:w-auto px-6 md:px-8 py-3 md:py-4 rounded-2xl flex items-center justify-center gap-3 transition-all"
+                  className="chunky-button group w-full md:w-auto px-4 md:px-8 py-3 md:py-4 rounded-2xl flex items-center justify-center gap-3 transition-all"
                   onClick={(e) => requestExpandedMode(e.nativeEvent, 'game')}
                 >
-                  <span className="text-lg md:text-xl font-black uppercase tracking-tight text-amber-950">
+                  <span className="text-md md:text-xl font-black uppercase tracking-tight text-amber-950">
                     Test Your Wavelength
                   </span>
                   <span className="text-xl md:text-2xl text-amber-950">▶</span>
                 </button>
                 <div className="grid grid-cols-2 gap-4">
-                  <button className="secondary-menu-button py-2 px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
+                  <button className="secondary-menu-button py-1 px-2 md:py-2 md:px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
                     <span className="text-sm text-yellow-300">Hall of Fame</span>
                   </button>
-                  <button className="secondary-menu-button py-2 px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
+                  <button className="secondary-menu-button py-1 px-2 md:py-2 md:px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
                     <span className="text-sm text-yellow-300">Submit Spectrum</span>
                   </button>
                 </div>

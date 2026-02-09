@@ -6,7 +6,7 @@ import type {
   UserStatsResponse,
 } from '../../shared/types/api';
 
-type Tab = 'score' | 'streak' | 'aligned' | 'controversial';
+type PeriodTab = 'weekly' | 'alltime';
 
 export const HallOfFameScreen = () => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(
@@ -15,7 +15,7 @@ export const HallOfFameScreen = () => {
   const [userStats, setUserStats] = useState<UserStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('score');
+  const [periodTab, setPeriodTab] = useState<PeriodTab>('weekly');
 
   useEffect(() => {
     let cancelled = false;
@@ -62,236 +62,142 @@ export const HallOfFameScreen = () => {
   }, []);
 
   const currentUserId = userStats?.userId;
+  const activeEntries = leaderboard?.topTotalScore || [];
+  const userRank = userStats?.ranks?.totalScoreRank || 458;
+  const userScore = userStats?.stats?.totalScore || 0;
 
-  const getActiveEntries = (): LeaderboardEntry[] => {
-    if (!leaderboard) return [];
-    switch (tab) {
-      case 'streak':
-        return leaderboard.topStreaks;
-      case 'aligned':
-        return leaderboard.mostAligned;
-      case 'controversial':
-        return leaderboard.mostControversial;
-      case 'score':
-      default:
-        return leaderboard.topTotalScore;
-    }
+  const getRankBadgeClass = (rank: number) => {
+    if (rank === 1) return 'bg-yellow-300 text-yellow-900 ring-2 ring-yellow-400/30';
+    if (rank === 2) return 'bg-slate-300 text-slate-700';
+    if (rank === 3) return 'bg-orange-400 text-orange-950';
+    return 'text-white/40';
   };
-
-  const describeMetric = (entry: LeaderboardEntry): string => {
-    switch (tab) {
-      case 'streak':
-        return `${entry.streakCurrent} day streak`;
-      case 'aligned':
-        return `${entry.averageDistanceToTarget.toFixed(
-          1,
-        )} away from target on average`;
-      case 'controversial':
-        return `${entry.averageDistanceFromReddit.toFixed(
-          1,
-        )} away from Reddit on average`;
-      case 'score':
-      default:
-        return `${entry.totalScore} lifetime score`;
-    }
-  };
-
-  const activeEntries = getActiveEntries();
 
   return (
-    <div className="flex h-full w-full flex-col items-center overflow-y-auto bg-slate-950/95 py-8 px-4 text-white">
-      <div className="w-full max-w-4xl">
-        <header className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight md:text-3xl">
-              Hall of Fame
-            </h1>
-            <p className="mt-1 text-sm text-slate-300">
-              See who&apos;s most dialed in, most on the wavelength, and most
-              gloriously unhinged.
-            </p>
-          </div>
+    <div className="relative flex h-full w-full flex-col items-center overflow-y-auto py-4 px-4 text-white" style={{ background: 'radial-gradient(circle at center, #5b21b6 0%, #1e1b4b 100%)' }}>
+      <div className="fixed top-[-10%] left-[-10%] w-[600px] h-[600px] bg-teal-500/20 rounded-full blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-[-10%] right-[-10%] w-[600px] h-[600px] bg-orange-600/20 rounded-full blur-[120px] pointer-events-none" />
+      
+      <div className="relative z-10 w-full max-w-4xl flex flex-col items-center">
+        <div className="text-center mb-6">
+          <h1 className="text-4xl md:text-5xl font-black text-white mb-2 tracking-tighter" style={{ textShadow: '0 0 15px rgba(45, 212, 191, 0.6)' }}>HALL OF FAME</h1>
+          <p className="text-teal-300 font-bold uppercase tracking-[0.3em] text-xs">Dial It In Legendaries</p>
+        </div>
 
-          <div className="inline-flex gap-2 rounded-full bg-slate-900/80 p-1 text-xs font-semibold">
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1 ${
-                tab === 'score'
-                  ? 'bg-amber-400 text-amber-950'
-                  : 'text-slate-300 hover:bg-slate-800'
-              }`}
-              onClick={() => setTab('score')}
-            >
-              Top score
-            </button>
-            <button
-              type="button"
-              className={`rounded-full px-3 py-1 ${
-                tab === 'streak'
-                  ? 'bg-amber-400 text-amber-950'
-                  : 'text-slate-300 hover:bg-slate-800'
-              }`}
-              onClick={() => setTab('streak')}
-            >
-              Longest streaks
-            </button>
-            <button
-              type="button"
-              className={`hidden rounded-full px-3 py-1 md:inline-block ${
-                tab === 'aligned'
-                  ? 'bg-amber-400 text-amber-950'
-                  : 'text-slate-300 hover:bg-slate-800'
-              }`}
-              onClick={() => setTab('aligned')}
-            >
-              Most aligned
-            </button>
-            <button
-              type="button"
-              className={`hidden rounded-full px-3 py-1 md:inline-block ${
-                tab === 'controversial'
-                  ? 'bg-amber-400 text-amber-950'
-                  : 'text-slate-300 hover:bg-slate-800'
-              }`}
-              onClick={() => setTab('controversial')}
-            >
-              Most controversial
-            </button>
-          </div>
-        </header>
+        <div className="flex bg-black/40 p-1.5 rounded-2xl mb-6 border border-white/10">
+          <button
+            type="button"
+            className={`px-6 md:px-8 py-2.5 rounded-xl font-bold text-base md:text-lg ${
+              periodTab === 'weekly' ? 'bg-white text-purple-900' : 'text-white/60 hover:text-white'
+            }`}
+            onClick={() => setPeriodTab('weekly')}
+          >
+            Weekly
+          </button>
+          <button
+            type="button"
+            className={`px-6 md:px-8 py-2.5 rounded-xl font-bold text-base md:text-lg ${
+              periodTab === 'alltime' ? 'bg-white text-purple-900' : 'text-white/60 hover:text-white'
+            }`}
+            onClick={() => setPeriodTab('alltime')}
+          >
+            All-Time
+          </button>
+        </div>
 
-        {error && (
-          <div className="mb-4 rounded-xl bg-red-500/15 p-3 text-xs font-semibold text-red-200">
-            {error}
-          </div>
-        )}
-
-        {userStats && (
-          <section className="mb-6 grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl bg-slate-900/80 p-4 text-sm ring-1 ring-white/10">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Your streak
-              </p>
-              {userStats.stats ? (
-                <>
-                  <p className="mt-1 text-2xl font-black text-amber-300">
-                    {userStats.stats.streak.current} days
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Best: {userStats.stats.streak.best} · Rank{' '}
-                    {userStats.ranks?.streakRank ?? '—'}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-2 text-xs text-slate-400">
-                  Play today&apos;s game to start a streak.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-2xl bg-slate-900/80 p-4 text-sm ring-1 ring-white/10">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Lifetime score
-              </p>
-              {userStats.stats ? (
-                <>
-                  <p className="mt-1 text-2xl font-black text-emerald-300">
-                    {userStats.stats.totalScore}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Rank {userStats.ranks?.totalScoreRank ?? '—'}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-2 text-xs text-slate-400">
-                  Finish a full 3‑round game to enter the leaderboard.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-2xl bg-slate-900/80 p-4 text-sm ring-1 ring-white/10">
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-                Your flavour
-              </p>
-              {userStats.stats && userStats.stats.gamesPlayed > 0 ? (
-                <>
-                  <p className="mt-1 text-sm text-slate-200">
-                    <span className="font-semibold text-emerald-300">
-                      Alignment:{' '}
-                    </span>
-                    {userStats.stats.averageDistanceToTarget.toFixed(1)} away
-                    from target on average.
-                  </p>
-                  <p className="mt-1 text-sm text-slate-200">
-                    <span className="font-semibold text-rose-300">
-                      Controversy:{' '}
-                    </span>
-                    {userStats.stats.averageDistanceFromReddit.toFixed(1)} away
-                    from Reddit on average.
-                  </p>
-                </>
-              ) : (
-                <p className="mt-2 text-xs text-slate-400">
-                  Once you&apos;ve played a few days we&apos;ll tell you if
-                  you&apos;re a consensus builder or chaos agent.
-                </p>
-              )}
-            </div>
-          </section>
-        )}
-
-        <section className="rounded-2xl bg-slate-900/80 p-4 text-sm ring-1 ring-white/10">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
-              {tab === 'score' && 'Top lifetime scores'}
-              {tab === 'streak' && 'Longest streaks'}
-              {tab === 'aligned' && 'Most aligned with the dial'}
-              {tab === 'controversial' && 'Most controversial guessers'}
+        <div className="w-full rounded-[2.5rem] relative flex flex-col" style={{ background: 'rgba(255, 255, 255, 0.07)', backdropFilter: 'blur(16px)', border: '2px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-teal-400 to-transparent z-20" />
+          
+          <div className="flex items-center justify-between p-6 md:p-8 pb-4">
+            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
+              <span className="text-2xl">🏆</span>
+              {periodTab === 'weekly' ? 'Weekly Top Scorers' : 'All-Time Champions'}
             </h2>
-            <span className="text-[11px] text-slate-500">
-              Showing top {activeEntries.length || 0}
-            </span>
+            {periodTab === 'weekly' && (
+              <div className="text-xs md:text-sm text-teal-300/80 font-semibold bg-teal-900/30 px-3 md:px-4 py-1.5 rounded-full">
+                Resets in 2d 14h
+              </div>
+            )}
           </div>
 
-          {loading && (
-            <p className="text-xs text-slate-300">Loading Hall of Fame…</p>
-          )}
-
-          {!loading && activeEntries.length === 0 && (
-            <p className="text-xs text-slate-300">
-              No one has reached the Hall of Fame yet. Play a few days and you
-              might be the first!
-            </p>
-          )}
-
-          {!loading && activeEntries.length > 0 && (
-            <ol className="mt-2 space-y-1 text-xs">
-              {activeEntries.map((entry, index) => {
-                const isYou = currentUserId && entry.userId === currentUserId;
-                return (
-                  <li
-                    key={`${entry.userId}-${index.toString()}`}
-                    className={`flex items-center justify-between rounded-lg px-3 py-2 ${
-                      isYou ? 'bg-amber-400/15' : 'bg-slate-950/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-[11px] font-semibold text-slate-400">
-                        #{index + 1}
-                      </span>
-                      <span className="text-sm font-semibold">
-                        {isYou ? 'You' : entry.userId}
-                      </span>
+          <div className="px-6 md:px-8 pb-4 space-y-3 flex-1">
+            {loading && <p className="text-sm text-white/60">Loading...</p>}
+            {error && <p className="text-sm text-red-400">{error}</p>}
+            
+            {!loading && activeEntries.slice(0, 10).map((entry, index) => {
+              const rank = index + 1;
+              const isTop3 = rank <= 3;
+              
+              return (
+                <div
+                  key={entry.userId}
+                  className={`flex items-center gap-4 md:gap-6 p-4 md:p-5 rounded-3xl border ${
+                    rank === 1 ? 'bg-white/5 border-white/10 ring-2 ring-yellow-400/30' : 'bg-white/5 border-white/10'
+                  }`}
+                >
+                  <div className={`w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full font-black text-lg md:text-xl ${getRankBadgeClass(rank)}`}>
+                    {rank}
+                  </div>
+                  
+                  <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                    <div className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-2xl md:text-3xl ${
+                      isTop3 ? 'bg-white/10 border-2 border-white/20' : 'bg-white/5 border border-white/10'
+                    }`}>
+                      {rank === 1 ? '👑' : rank === 2 ? '😎' : rank === 3 ? '🎯' : '👤'}
                     </div>
-                    <p className="text-right text-[11px] text-slate-300">
-                      {describeMetric(entry)}
-                    </p>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-        </section>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-white font-bold text-base md:text-xl truncate">
+                        {entry.userId}
+                      </div>
+                      {rank === 1 && (
+                        <div className="text-teal-400 text-[10px] font-bold uppercase tracking-wider">Reddit Champion</div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className={`font-black ${
+                      rank === 1 ? 'text-2xl md:text-3xl text-yellow-400' : 'text-xl md:text-2xl text-white/90'
+                    }`} style={rank === 1 ? { textShadow: '0 0 15px rgba(251, 191, 36, 0.6)' } : {}}>
+                      {entry.totalScore.toLocaleString()}
+                    </div>
+                    {rank === 1 && (
+                      <div className="text-[10px] text-white/40 uppercase font-black">Total Score</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <div className="h-4" />
+          </div>
+
+          <div className="w-full px-6 md:px-8 py-5 mt-auto relative z-30" style={{ background: 'rgba(45, 212, 191, 0.15)', borderTop: '2px solid rgba(45, 212, 191, 0.4)', boxShadow: '0 -10px 25px -5px rgba(45, 212, 191, 0.15)' }}>
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-xl bg-teal-500/20 border border-teal-400/30 text-teal-300 font-black text-base md:text-xl">
+                #{userRank}
+              </div>
+              
+              <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
+                <div className="w-10 h-10 md:w-12 md:h-12 bg-teal-400/20 rounded-full flex items-center justify-center border-2 border-teal-400/40 text-2xl md:text-3xl" style={{ boxShadow: '0 0 10px rgba(45, 212, 191, 0.2)' }}>
+                  👤
+                </div>
+                <div className="min-w-0">
+                  <div className="text-white font-bold text-base md:text-xl truncate">
+                    {currentUserId || 'u/Username'}
+                  </div>
+                  <div className="text-teal-400/80 text-[10px] font-black uppercase tracking-widest">Personal Performance</div>
+                </div>
+              </div>
+              
+              <div className="text-right">
+                <div className="text-xl md:text-2xl font-bold text-white" style={{ textShadow: '0 0 15px rgba(45, 212, 191, 0.6)' }}>
+                  {userScore.toLocaleString()}
+                </div>
+                <div className="text-[10px] text-teal-400/60 uppercase font-black -mt-1">Current Score</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

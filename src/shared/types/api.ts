@@ -1,9 +1,4 @@
-import type {
-  DailyGame,
-  GuessResult,
-  SpectrumSubmission,
-  UserStats,
-} from '../types';
+import type { DailyGame, GuessResult, SpectrumSubmission, UserStats } from '../types';
 
 export type InitResponse = {
   type: 'init';
@@ -28,10 +23,19 @@ export type DailyGameResponse = {
   type: 'daily-game';
   game: DailyGame;
   /**
-   * Optional prior per‑round results for this user on today’s game.
-   * When present, the client can resume or show “you already played today”.
+   * Optional prior per-round results for this user on today's game.
+   * When present, the client can resume or show "you already played today".
    */
   priorResults?: GuessResult[];
+  /**
+   * Optional saved game state (dial position, current round, status).
+   * Used for cross-device persistence.
+   */
+  savedGameState?: {
+    currentRoundIndex: number;
+    dialValue: number;
+    gameStatus: 'playing' | 'round_end' | 'game_over';
+  };
 };
 
 export type GuessRequestBody = {
@@ -107,4 +111,15 @@ export type UserStatsResponse = {
     alignmentRank?: number | undefined;
     controversialRank?: number | undefined;
   } | null;
+};
+
+export type SaveGameStateRequest = {
+  currentRoundIndex: number;
+  dialValue: number;
+  gameStatus: 'playing' | 'round_end' | 'game_over';
+};
+
+export type SaveGameStateResponse = {
+  type: 'save-game-state';
+  success: boolean;
 };
