@@ -78,7 +78,10 @@ export const Splash = () => {
                   <span className="text-xl md:text-2xl text-amber-950">▶</span>
                 </button>
                 <div className="grid grid-cols-2 gap-4">
-                  <button className="secondary-menu-button py-1 px-2 md:py-2 md:px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider">
+                  <button
+                    onClick={(e) => requestExpandedMode(e.nativeEvent, 'hof')}
+                    className="secondary-menu-button py-1 px-2 md:py-2 md:px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider"
+                  >
                     <span className="text-sm text-yellow-300">Hall of Fame</span>
                   </button>
                   <button className="secondary-menu-button py-1 px-2 md:py-2 md:px-3 rounded-2xl flex items-center justify-center gap-2 text-white font-bold text-xs uppercase tracking-wider">

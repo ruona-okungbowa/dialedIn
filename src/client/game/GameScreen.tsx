@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 
 import type { DailyGame, GuessResult } from '../../shared/types';
 import type { DailyGameResponse, GuessResponse } from '../../shared/types/api';
@@ -24,10 +24,12 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
   const [phase, setPhase] = useState<Phase>('playing');
   const [submitting, setSubmitting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPlayingPreviousDay, setIsPlayingPreviousDay] = useState(false);
   const { playSound, triggerHapticFeedback } = useSoundHaptics();
-  const { saveState, loadState, clearState } = useGameState();
+  const { saveState, loadStateWithDateValidation, clearState } = useGameState();
   const lastDialValueRef = useRef(50);
   const dialThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
 
   // Map 0–100 to angle range (-60deg to +120deg for asymmetric arc)
   const minAngle = -60;
@@ -51,6 +53,30 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
     [roundResults]
   );
 
+  // Helper function to save state and broadcast to other tabs
+  const saveAndBroadcastState = useCallback(
+    (stateData: {
+      gameId: string;
+      currentRoundIndex: number;
+      roundResults: GuessResult[];
+      dialValue: number;
+      gameStatus: 'playing' | 'round_end' | 'game_over';
+      totalScore: number;
+    }) => {
+      // Save to localStorage
+      saveState(stateData);
+
+      // Broadcast to other tabs
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({
+          type: 'STATE_UPDATE',
+          data: stateData,
+        });
+      }
+    },
+    [saveState]
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -70,42 +96,65 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
         setGame(data.game);
         const gameId = `${data.game.date}-${data.game.subredditId}`;
 
-        // Priority 1: Try to restore from localStorage (for same session/device)
-        const savedState = loadState(gameId);
+        // Use date validation to check if saved state is from previous day
+        const validation = loadStateWithDateValidation(gameId);
 
-        // Priority 2: Fall back to server-side results (for cross-device or after clearing localStorage)
-        const resultsToRestore = savedState?.roundResults.length
-          ? savedState.roundResults
-          : (data.priorResults ?? []);
+        if (validation.isFromPreviousDay && validation.canContinuePreviousDay) {
+          // User has incomplete game from previous day - allow them to finish
+          setIsPlayingPreviousDay(true);
 
-        if (resultsToRestore.length > 0) {
-          setRoundResults(resultsToRestore);
-
-          // If game is complete (all 3 rounds done)
-          if (resultsToRestore.length >= 3) {
-            setPhase('finished');
-            onGameComplete(resultsToRestore);
-          } else {
-            // Resume from where user left off
-            const nextRoundIndex = resultsToRestore.length;
-            setCurrentRoundIndex(nextRoundIndex);
-
-            // Restore dial to saved position, or last guess position, or default to 50
-            const dialToRestore =
-              savedState?.dialValue ??
-              resultsToRestore[resultsToRestore.length - 1]?.dialValue ??
-              50;
-            setDialValue(clamp(dialToRestore, 0, 100));
-            setPhase('playing');
-          }
-        } else if (savedState) {
-          // No completed rounds but we have saved state (user was adjusting dial)
+          const savedState = validation.state!;
+          setRoundResults(savedState.roundResults);
           setCurrentRoundIndex(savedState.currentRoundIndex);
           setDialValue(clamp(savedState.dialValue, 0, 100));
           setPhase('playing');
-        } else {
-          // Fresh game - clear any old localStorage state from previous days
+        } else if (validation.isFromPreviousDay && !validation.canContinuePreviousDay) {
+          // Previous day's game was complete - clear it and start fresh
           clearState();
+
+          // Check if there are server-side results for today
+          const resultsToRestore = data.priorResults ?? [];
+          if (resultsToRestore.length > 0) {
+            setRoundResults(resultsToRestore);
+            if (resultsToRestore.length >= 3) {
+              setPhase('finished');
+              onGameComplete(resultsToRestore);
+            } else {
+              setCurrentRoundIndex(resultsToRestore.length);
+              setDialValue(50);
+              setPhase('playing');
+            }
+          }
+        } else if (validation.state) {
+          // Same day - restore state normally
+          const savedState = validation.state;
+          setRoundResults(savedState.roundResults);
+
+          if (savedState.roundResults.length >= 3) {
+            setPhase('finished');
+            onGameComplete(savedState.roundResults);
+          } else {
+            setCurrentRoundIndex(savedState.currentRoundIndex);
+            setDialValue(clamp(savedState.dialValue, 0, 100));
+            setPhase('playing');
+          }
+        } else {
+          // No saved state - check server results or start fresh
+          const resultsToRestore = data.priorResults ?? [];
+          if (resultsToRestore.length > 0) {
+            setRoundResults(resultsToRestore);
+            if (resultsToRestore.length >= 3) {
+              setPhase('finished');
+              onGameComplete(resultsToRestore);
+            } else {
+              setCurrentRoundIndex(resultsToRestore.length);
+              setDialValue(50);
+              setPhase('playing');
+            }
+          } else {
+            // Fresh game
+            clearState();
+          }
         }
       } catch (e) {
         if (cancelled) return;
@@ -124,6 +173,49 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
+
+  // Cross-tab synchronization using BroadcastChannel
+  useEffect(() => {
+    if (!game) return;
+
+    // Create broadcast channel for cross-tab communication
+    const channel = new BroadcastChannel('dialedin-game-sync');
+    broadcastChannelRef.current = channel;
+
+    const handleMessage = (event: MessageEvent) => {
+      const { type, data } = event.data;
+      const gameId = `${game.date}-${game.subredditId}`;
+
+      // Only sync if it's for the current game
+      if (data.gameId !== gameId) return;
+
+      if (type === 'STATE_UPDATE') {
+        // Update state from other tab
+        setCurrentRoundIndex(data.currentRoundIndex);
+        setDialValue(clamp(data.dialValue, 0, 100));
+
+        if (data.roundResults) {
+          setRoundResults(data.roundResults);
+        }
+
+        // Update phase based on game status
+        if (data.gameStatus === 'game_over' && data.roundResults?.length >= 3) {
+          setPhase('finished');
+        } else if (data.gameStatus === 'round_end') {
+          setPhase('revealing');
+        } else {
+          setPhase('playing');
+        }
+      }
+    };
+
+    channel.addEventListener('message', handleMessage);
+
+    return () => {
+      channel.removeEventListener('message', handleMessage);
+      channel.close();
+    };
+  }, [game]);
 
   const handleSubmitGuess = async () => {
     if (!game || currentRoundIndex > 2 || submitting || phase !== 'playing') {
@@ -159,10 +251,10 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
         const filtered = prev.filter((r) => r.roundIndex !== result.roundIndex);
         const updated = [...filtered, result].sort((a, b) => a.roundIndex - b.roundIndex);
 
-        // Save state after guess to localStorage and server
+        // Save state after guess to localStorage, broadcast to tabs, and save to server
         if (game) {
           const totalScore = updated.reduce((sum, r) => sum + (r.score ?? 0), 0);
-          saveState({
+          saveAndBroadcastState({
             gameId: `${game.date}-${game.subredditId}`,
             currentRoundIndex,
             roundResults: updated,
@@ -209,10 +301,10 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
       triggerHapticFeedback([20, 30, 20]);
       setPhase('finished');
 
-      // Save final state before completing game (don't clear yet - user might refresh on results)
+      // Save final state before completing game
       if (game) {
         const totalScore = roundResults.reduce((sum, r) => sum + (r.score ?? 0), 0);
-        saveState({
+        saveAndBroadcastState({
           gameId: `${game.date}-${game.subredditId}`,
           currentRoundIndex: 2,
           roundResults,
@@ -235,7 +327,22 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
         }).catch((e) => console.error('Failed to save game state to server:', e));
       }
 
-      onGameComplete(roundResults);
+      // If this was a previous day's game, clear state and reload for new day
+      if (isPlayingPreviousDay) {
+        clearState();
+        setIsPlayingPreviousDay(false);
+
+        // Show completion message then reload
+        setTimeout(() => {
+          onGameComplete(roundResults);
+          // Reload the page to get today's game
+          setTimeout(() => {
+            globalThis.location?.reload();
+          }, 2000);
+        }, 500);
+      } else {
+        onGameComplete(roundResults);
+      }
       return;
     }
 
@@ -250,7 +357,7 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
     // Save state after moving to next round
     if (game) {
       const totalScore = roundResults.reduce((sum, r) => sum + (r.score ?? 0), 0);
-      saveState({
+      saveAndBroadcastState({
         gameId: `${game.date}-${game.subredditId}`,
         currentRoundIndex: nextIndex,
         roundResults,
@@ -318,11 +425,11 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
   useEffect(() => {
     if (phase !== 'playing' || !game) return;
 
-    const saveTimer = setTimeout(async () => {
+    const saveTimer = setTimeout(() => {
       const totalScore = roundResults.reduce((sum, r) => sum + (r.score ?? 0), 0);
 
-      // Save to localStorage
-      saveState({
+      // Save to localStorage and broadcast to other tabs
+      saveAndBroadcastState({
         gameId: `${game.date}-${game.subredditId}`,
         currentRoundIndex,
         roundResults,
@@ -331,9 +438,9 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
         totalScore,
       });
 
-      // Save to server (Redis) for cross-device persistence
-      try {
-        await fetch('/api/save-game-state', {
+      // Save to server (fire-and-forget, non-blocking)
+      setTimeout(() => {
+        fetch('/api/save-game-state', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -343,15 +450,12 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
             dialValue,
             gameStatus: 'playing',
           }),
-        });
-      } catch (e) {
-        console.error('Failed to save game state to server:', e);
-        // Don't show error to user, localStorage still works
-      }
-    }, 500); // Save 500ms after user stops moving dial
+        }).catch((e) => console.error('Failed to save game state to server:', e));
+      }, 0);
+    }, 1000); // Save 1 second after user stops moving dial
 
     return () => clearTimeout(saveTimer);
-  }, [dialValue, phase, game, currentRoundIndex, roundResults, saveState]);
+  }, [dialValue, phase, game, currentRoundIndex, roundResults, saveAndBroadcastState]);
 
   if (loading) {
     return (
@@ -488,6 +592,7 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
           </div>
         </div>
       </div>
+
       <main className="relative z-10 w-full max-w-3xl flex flex-col items-center gap-2">
         {phase === 'revealing' && latestResult ? (
           <RevealScreen
@@ -541,12 +646,12 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
                 >
                   <div
                     className="needle-red w-full h-[95%] bg-red-500 rounded-t-full border-2 border-white relative"
-                      style={{
-                        transform: `rotate(${angle}deg)`,
-                        transformOrigin: 'bottom center',
-                        transition: isDragging ? 'none' : 'transform 0.12s linear',
-                      }}
-                    >
+                    style={{
+                      transform: `rotate(${angle}deg)`,
+                      transformOrigin: 'bottom center',
+                      transition: isDragging ? 'none' : 'transform 0.12s linear',
+                    }}
+                  >
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 w-1 h-8 bg-white/30 rounded-full"></div>
                   </div>
                 </div>

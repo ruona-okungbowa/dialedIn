@@ -16,6 +16,7 @@ import {
   SaveGameStateRequest,
   SaveGameStateResponse,
 } from '../shared/types/api';
+import type { LeaderboardEntry } from '../shared/types/api';
 import { redis, reddit, createServer, context, getServerPort } from '@devvit/web/server';
 import { createPost } from './core/post';
 import type { DailyGame, GuessResult, SpectrumSubmission, UserStats } from '../shared/types';
@@ -358,6 +359,17 @@ const saveBucketsForToday = async (
   await redis.set(key, JSON.stringify(buckets));
 };
 
+// Helper function to get the Monday of the current week
+const getWeekStartDate = (): string => {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday, go back 6 days; otherwise go to Monday
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + daysToMonday);
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString().slice(0, 10); // YYYY-MM-DD
+};
+
 const updateUserStatsAfterGameCompletion = async (
   userKey: string,
   results: GuessResult[]
@@ -365,16 +377,30 @@ const updateUserStatsAfterGameCompletion = async (
   if (!results.length) return;
 
   const allStats = await getAllUserStats();
+  const currentWeekStart = getWeekStartDate();
+
   const prev: UserStats =
     allStats[userKey] ??
     ({
       userId: userKey,
       streak: { current: 0, best: 0 },
       totalScore: 0,
+      weeklyScore: 0,
+      weekStartDate: currentWeekStart,
       gamesPlayed: 0,
       averageDistanceToTarget: 0,
       averageDistanceFromReddit: 0,
     } as UserStats);
+
+  // Try to resolve a display username for this user (best-effort). If reddit
+  // API call fails, fall back to existing stored username or userId.
+  let resolvedUsername: string | undefined = prev.username;
+  try {
+    const uname = await reddit.getCurrentUsername();
+    if (uname) resolvedUsername = uname;
+  } catch {
+    // ignore – keep prev.username or undefined
+  }
 
   const totalScoreForDay = results.reduce(
     (sum, r) => sum + (typeof r.score === 'number' ? r.score : 0),
@@ -413,10 +439,26 @@ const updateUserStatsAfterGameCompletion = async (
   const hitThreshold = totalScoreForDay >= 70 * results.length;
   const streak = updateStreak(prev.streak, true, hitThreshold);
 
+  // Weekly score handling: if the stored weekStartDate matches the current
+  // week, accumulate; otherwise reset to this day's total.
+  const prevWeekStart = prev.weekStartDate ?? currentWeekStart;
+  let weeklyScore = prev.weeklyScore ?? 0;
+  let weekStartDate = prevWeekStart;
+
+  if (prevWeekStart === currentWeekStart) {
+    weeklyScore = (weeklyScore ?? 0) + totalScoreForDay;
+  } else {
+    weeklyScore = totalScoreForDay;
+    weekStartDate = currentWeekStart;
+  }
+
   allStats[userKey] = {
     userId: userKey,
+    ...(resolvedUsername !== undefined && { username: resolvedUsername }),
     streak,
     totalScore,
+    weeklyScore,
+    weekStartDate,
     gamesPlayed,
     averageDistanceToTarget,
     averageDistanceFromReddit,
@@ -891,21 +933,39 @@ router.get<{}, LeaderboardResponse | { status: string; message: string }>(
   '/api/leaderboard',
   async (_req, res): Promise<void> => {
     try {
+      const currentWeekStart = getWeekStartDate();
       const allStats = await getAllUserStats();
       const entries = Object.values(allStats);
 
-      const toLeaderboardEntry = (stats: UserStats) => ({
-        userId: stats.userId,
-        totalScore: stats.totalScore,
-        streakCurrent: stats.streak.current,
-        averageDistanceToTarget: stats.averageDistanceToTarget,
-        averageDistanceFromReddit: stats.averageDistanceFromReddit,
-      });
+      const toLeaderboardEntry = (stats: UserStats): LeaderboardEntry => {
+        const entry: LeaderboardEntry = {
+          userId: stats.userId,
+          totalScore: stats.totalScore,
+          // Only count weeklyScore if it belongs to the current week; otherwise treat as 0
+          weeklyScore: stats.weekStartDate === currentWeekStart ? (stats.weeklyScore ?? 0) : 0,
+          streakCurrent: stats.streak.current,
+          averageDistanceToTarget: stats.averageDistanceToTarget,
+          averageDistanceFromReddit: stats.averageDistanceFromReddit,
+        };
+        if (stats.username !== undefined) {
+          entry.username = stats.username;
+        }
+        return entry;
+      };
 
       const byTotalScore = [...entries]
         .sort((a, b) => b.totalScore - a.totalScore)
         .slice(0, 10)
         .map(toLeaderboardEntry);
+
+      const byWeeklyScore = [...entries]
+        .map((s) => ({
+          stats: s,
+          score: s.weekStartDate === currentWeekStart ? (s.weeklyScore ?? 0) : 0,
+        }))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10)
+        .map((p) => toLeaderboardEntry(p.stats));
 
       const byStreak = [...entries]
         .sort((a, b) => b.streak.current - a.streak.current)
@@ -924,12 +984,51 @@ router.get<{}, LeaderboardResponse | { status: string; message: string }>(
         .slice(0, 10)
         .map(toLeaderboardEntry);
 
+      // Collect all unique user IDs that need username resolution
+      const allLeaderboardEntries = [
+        ...byTotalScore,
+        ...byWeeklyScore,
+        ...byStreak,
+        ...mostAligned,
+        ...mostControversial,
+      ];
+      const entriesNeedingUsernames = allLeaderboardEntries.filter((e) => !e.username);
+      const uniqueUserIds = [...new Set(entriesNeedingUsernames.map((e) => e.userId))];
+
+      // Fetch usernames for users who don't have them stored
+      const usernameMap = new Map<string, string>();
+      await Promise.all(
+        uniqueUserIds.map(async (userId) => {
+          try {
+            // Only fetch if userId looks like a Reddit user ID (t2_ prefix)
+            if (userId.startsWith('t2_')) {
+              const user = await reddit.getUserById(userId);
+              if (user?.username) {
+                usernameMap.set(userId, user.username);
+              }
+            }
+          } catch (error) {
+            // Silently fail for individual user lookups
+            console.warn(`Failed to fetch username for ${userId}:`, error);
+          }
+        })
+      );
+
+      // Update entries with fetched usernames
+      const updateEntryUsername = (entry: LeaderboardEntry): LeaderboardEntry => {
+        if (!entry.username && usernameMap.has(entry.userId)) {
+          return { ...entry, username: usernameMap.get(entry.userId) };
+        }
+        return entry;
+      };
+
       const response: LeaderboardResponse = {
         type: 'leaderboard',
-        topTotalScore: byTotalScore,
-        topStreaks: byStreak,
-        mostAligned,
-        mostControversial,
+        topTotalScore: byTotalScore.map(updateEntryUsername),
+        topWeeklyScore: byWeeklyScore.map(updateEntryUsername),
+        topStreaks: byStreak.map(updateEntryUsername),
+        mostAligned: mostAligned.map(updateEntryUsername),
+        mostControversial: mostControversial.map(updateEntryUsername),
       };
 
       res.json(response);
@@ -949,7 +1048,43 @@ router.get<{}, UserStatsResponse | { status: string; message: string }>(
     try {
       const userKey = await getUserKey();
       const allStats = await getAllUserStats();
-      const stats = allStats[userKey] ?? null;
+      let stats = allStats[userKey] ?? null;
+
+      // Try to fetch the current user's username if not already stored
+      if (stats && !stats.username) {
+        try {
+          const username = await reddit.getCurrentUsername();
+          if (username) {
+            stats = { ...stats, username };
+          }
+        } catch (error) {
+          // Silently fail - username is optional
+          console.warn('Failed to fetch current username:', error);
+        }
+      }
+
+      // If stats is null but we have a userKey, try to fetch username for display
+      if (!stats) {
+        try {
+          const username = await reddit.getCurrentUsername();
+          if (username) {
+            stats = {
+              userId: userKey,
+              username,
+              streak: { current: 0, best: 0 },
+              totalScore: 0,
+              weeklyScore: 0,
+              weekStartDate: getWeekStartDate(),
+              gamesPlayed: 0,
+              averageDistanceToTarget: 0,
+              averageDistanceFromReddit: 0,
+            };
+          }
+        } catch (error) {
+          // Silently fail
+          console.warn('Failed to fetch username for new user:', error);
+        }
+      }
 
       const entries = Object.values(allStats);
 
@@ -966,6 +1101,14 @@ router.get<{}, UserStatsResponse | { status: string; message: string }>(
       const byControversy = [...entries]
         .filter((e) => e.gamesPlayed > 0)
         .sort((a, b) => b.averageDistanceFromReddit - a.averageDistanceFromReddit);
+      const currentWeekStart = getWeekStartDate();
+      const byWeeklyScore = [...entries]
+        .map((s) => ({
+          stats: s,
+          score: s.weekStartDate === currentWeekStart ? (s.weeklyScore ?? 0) : 0,
+        }))
+        .sort((a, b) => b.score - a.score)
+        .map((p) => p.stats);
 
       const response: UserStatsResponse = {
         type: 'user-stats',
@@ -973,6 +1116,7 @@ router.get<{}, UserStatsResponse | { status: string; message: string }>(
         stats,
         ranks: {
           totalScoreRank: rankOf(byTotalScore, userKey),
+          weeklyScoreRank: rankOf(byWeeklyScore, userKey),
           streakRank: rankOf(byStreak, userKey),
           alignmentRank: rankOf(byAlignment, userKey),
           controversialRank: rankOf(byControversy, userKey),

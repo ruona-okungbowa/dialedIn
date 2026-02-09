@@ -87,7 +87,9 @@ export type SpectrumLabVoteResponse = {
 
 export type LeaderboardEntry = {
   userId: string;
+  username?: string;
   totalScore: number;
+  weeklyScore: number;
   streakCurrent: number;
   averageDistanceToTarget: number;
   averageDistanceFromReddit: number;
@@ -96,6 +98,7 @@ export type LeaderboardEntry = {
 export type LeaderboardResponse = {
   type: 'leaderboard';
   topTotalScore: LeaderboardEntry[];
+  topWeeklyScore: LeaderboardEntry[];
   topStreaks: LeaderboardEntry[];
   mostAligned: LeaderboardEntry[];
   mostControversial: LeaderboardEntry[];
@@ -107,6 +110,7 @@ export type UserStatsResponse = {
   stats: UserStats | null;
   ranks: {
     totalScoreRank?: number | undefined;
+    weeklyScoreRank?: number | undefined;
     streakRank?: number | undefined;
     alignmentRank?: number | undefined;
     controversialRank?: number | undefined;

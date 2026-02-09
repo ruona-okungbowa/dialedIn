@@ -141,11 +141,21 @@ export type StreakState = {
  */
 export type UserStats = {
   userId: string;
+  /** Optional display username (e.g., "spez"). When present, prefer this for UI. */
+  username?: string;
   streak: StreakState;
   /**
    * Cumulative score across all games played.
    */
   totalScore: number;
+  /**
+   * Weekly score (resets every Monday at midnight).
+   */
+  weeklyScore: number;
+  /**
+   * ISO date string of the current week's Monday (YYYY-MM-DD).
+   */
+  weekStartDate: string;
   /**
    * Number of completed daily games.
    */
