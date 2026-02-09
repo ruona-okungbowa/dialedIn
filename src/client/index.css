@@ -20,14 +20,6 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
-  /* Prevent inline scrolling inside webviews on mobile */
-  html,
-  body,
-  #root {
-    height: 100%;
-    overscroll-behavior-y: none;
-  }
 }
 
 @layer utilities {
@@ -78,8 +70,11 @@
       transform: scale(1.05);
 
       /* Prevent inline scrolling inside webviews on mobile. Ensure root fills viewport. */
-      .safe-area-bottom {
-        padding-bottom: env(safe-area-inset-bottom);
+      html,
+      body,
+      #root {
+        height: 100%;
+        overscroll-behavior-y: none;
       }
     }
   }
@@ -300,13 +295,6 @@
     .chunky-button {
       padding: 1rem 1.5rem;
       font-size: 1.125rem;
-    }
-    
-    /* Disable text selection on interactive elements */
-    button, input[type="range"] {
-      -webkit-user-select: none;
-      user-select: none;
-      -webkit-touch-callout: none;
     }
   }
 

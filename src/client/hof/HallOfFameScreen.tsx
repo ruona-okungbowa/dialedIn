@@ -105,7 +105,7 @@ export const HallOfFameScreen = () => {
           </button>
         </div>
 
-        <div className="w-full rounded-[2.5rem] relative flex flex-col" style={{ background: 'rgba(255, 255, 255, 0.07)', backdropFilter: 'blur(16px)', border: '2px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+        <div className="w-full rounded-[2.5rem] relative overflow-hidden flex flex-col max-h-[700px]" style={{ background: 'rgba(255, 255, 255, 0.07)', backdropFilter: 'blur(16px)', border: '2px solid rgba(255, 255, 255, 0.1)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-teal-400 to-transparent z-20" />
           
           <div className="flex items-center justify-between p-6 md:p-8 pb-4">
@@ -120,7 +120,7 @@ export const HallOfFameScreen = () => {
             )}
           </div>
 
-          <div className="px-6 md:px-8 pb-4 space-y-3 flex-1">
+          <div className="overflow-y-auto px-6 md:px-8 pb-4 space-y-3 flex-1" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(45, 212, 191, 0.3) rgba(255, 255, 255, 0.05)' }}>
             {loading && <p className="text-sm text-white/60">Loading...</p>}
             {error && <p className="text-sm text-red-400">{error}</p>}
             

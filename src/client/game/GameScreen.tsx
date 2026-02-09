@@ -541,12 +541,12 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
                 >
                   <div
                     className="needle-red w-full h-[95%] bg-red-500 rounded-t-full border-2 border-white relative"
-                    style={{
-                      transform: `rotate(${angle}deg)`,
-                      transformOrigin: 'bottom center',
-                      transition: isDragging ? 'none' : 'transform 0.12s linear',
-                    }}
-                  >
+                      style={{
+                        transform: `rotate(${angle}deg)`,
+                        transformOrigin: 'bottom center',
+                        transition: isDragging ? 'none' : 'transform 0.12s linear',
+                      }}
+                    >
                     <div className="absolute top-2 left-1/2 -translate-x-1/2 w-1 h-8 bg-white/30 rounded-full"></div>
                   </div>
                 </div>
@@ -572,11 +572,6 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
                   style={{ touchAction: 'none' }}
                   className="w-full h-2.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-yellow-400 border-2 border-white/10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:h-7 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-yellow-400 [&::-webkit-slider-thumb]:border-[3px] [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:cursor-pointer md:[&::-webkit-slider-thumb]:w-8 md:[&::-webkit-slider-thumb]:h-8 md:[&::-webkit-slider-thumb]:border-4 [&::-moz-range-thumb]:w-7 [&::-moz-range-thumb]:h-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-yellow-400 [&::-moz-range-thumb]:border-[3px] [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-lg [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-none md:[&::-moz-range-thumb]:w-8 md:[&::-moz-range-thumb]:h-8"
                   aria-label="Dial value"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={dialValue}
-                  aria-valuetext={`${dialValue} out of 100, leaning ${dialValue < 30 ? 'left' : dialValue > 70 ? 'right' : 'center'}`}
-                  role="slider"
                 />
                 <div className="flex justify-between mt-1 text-white/60 font-bold text-[9px] uppercase tracking-wider">
                   <span>Leaning Left</span>

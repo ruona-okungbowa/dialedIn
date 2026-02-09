@@ -149,7 +149,7 @@ export const SpectrumLabScreen = () => {
   };
 
   return (
-    <div className="flex h-full w-full flex-col items-center bg-slate-950/95 py-8 px-4 text-white">
+    <div className="flex h-full w-full flex-col items-center overflow-y-auto bg-slate-950/95 py-8 px-4 text-white">
       <div className="w-full max-w-4xl">
         <header className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
