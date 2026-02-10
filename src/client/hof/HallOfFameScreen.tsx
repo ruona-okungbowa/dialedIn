@@ -162,7 +162,7 @@ export const HallOfFameScreen = () => {
         </div>
 
         <div
-          className="w-full rounded-[2.5rem] relative overflow-hidden flex flex-col max-h-[700px]"
+          className="w-full rounded-[2.5rem] relative overflow-hidden flex flex-col max-h-[60vh] md:max-h-[700px]"
           style={{
             background: 'rgba(255, 255, 255, 0.07)',
             backdropFilter: 'blur(16px)',
@@ -172,27 +172,31 @@ export const HallOfFameScreen = () => {
         >
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-teal-400 to-transparent z-20" />
 
-          <div className="flex items-center justify-between p-6 md:p-8 pb-4">
-            <h2 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-              <span className="text-2xl">🏆</span>
-              {periodTab === 'weekly' ? 'Weekly Top Scorers' : 'All-Time Champions'}
+          <div className="flex items-center justify-between p-4 md:p-6 lg:p-8 pb-3 md:pb-4 flex-shrink-0">
+            <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-white flex items-center gap-2">
+              <span className="text-xl md:text-2xl">🏆</span>
+              <span className="hidden sm:inline">
+                {periodTab === 'weekly' ? 'Weekly Top Scorers' : 'All-Time Champions'}
+              </span>
+              <span className="sm:hidden">{periodTab === 'weekly' ? 'Weekly' : 'All-Time'}</span>
             </h2>
             {periodTab === 'weekly' && (
-              <div className="text-xs md:text-sm text-teal-300/80 font-semibold bg-teal-900/30 px-3 md:px-4 py-1.5 rounded-full">
-                Resets in {timeUntilReset || 'calculating...'}
+              <div className="text-[10px] md:text-xs lg:text-sm text-teal-300/80 font-semibold bg-teal-900/30 px-2 md:px-3 lg:px-4 py-1 md:py-1.5 rounded-full whitespace-nowrap">
+                <span className="hidden sm:inline">Resets in </span>
+                {timeUntilReset || '...'}
               </div>
             )}
           </div>
 
           <div
-            className="overflow-y-auto px-6 md:px-8 pb-4 space-y-3 flex-1"
+            className="overflow-y-auto px-3 md:px-6 lg:px-8 pb-3 md:pb-4 space-y-2 md:space-y-3 flex-1"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: 'rgba(45, 212, 191, 0.3) rgba(255, 255, 255, 0.05)',
             }}
           >
-            {loading && <p className="text-sm text-white/60">Loading...</p>}
-            {error && <p className="text-sm text-red-400">{error}</p>}
+            {loading && <p className="text-sm text-white/60 text-center py-4">Loading...</p>}
+            {error && <p className="text-sm text-red-400 text-center py-4">{error}</p>}
 
             {!loading &&
               activeEntries.slice(0, 10).map((entry, index) => {
@@ -202,21 +206,21 @@ export const HallOfFameScreen = () => {
                 return (
                   <div
                     key={entry.userId}
-                    className={`flex items-center gap-4 md:gap-6 p-4 md:p-5 rounded-3xl border ${
+                    className={`flex items-center gap-2 md:gap-4 lg:gap-6 p-3 md:p-4 lg:p-5 rounded-2xl md:rounded-3xl border ${
                       rank === 1
                         ? 'bg-white/5 border-white/10 ring-2 ring-yellow-400/30'
                         : 'bg-white/5 border-white/10'
                     }`}
                   >
                     <div
-                      className={`w-10 h-10 md:w-11 md:h-11 flex items-center justify-center rounded-full font-black text-lg md:text-xl ${getRankBadgeClass(rank)}`}
+                      className={`w-8 h-8 md:w-10 md:h-10 lg:w-11 lg:h-11 flex items-center justify-center rounded-full font-black text-sm md:text-lg lg:text-xl flex-shrink-0 ${getRankBadgeClass(rank)}`}
                     >
                       {rank}
                     </div>
 
                     <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
                       <div
-                        className={`w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center text-2xl md:text-3xl ${
+                        className={`w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 rounded-full flex items-center justify-center text-lg md:text-2xl lg:text-3xl flex-shrink-0 ${
                           isTop3
                             ? 'bg-white/10 border-2 border-white/20'
                             : 'bg-white/5 border border-white/10'
@@ -225,23 +229,23 @@ export const HallOfFameScreen = () => {
                         {rank === 1 ? '👑' : rank === 2 ? '😎' : rank === 3 ? '🎯' : '👤'}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="text-white font-bold text-base md:text-xl truncate">
+                        <div className="text-white font-bold text-sm md:text-base lg:text-xl truncate">
                           {entry.username ?? entry.userId}
                         </div>
                         {rank === 1 && (
-                          <div className="text-teal-400 text-[10px] font-bold uppercase tracking-wider">
+                          <div className="text-teal-400 text-[9px] md:text-[10px] font-bold uppercase tracking-wider">
                             Reddit Champion
                           </div>
                         )}
                       </div>
                     </div>
 
-                    <div className="text-right">
+                    <div className="text-right flex-shrink-0">
                       <div
                         className={`font-black ${
                           rank === 1
-                            ? 'text-2xl md:text-3xl text-yellow-400'
-                            : 'text-xl md:text-2xl text-white/90'
+                            ? 'text-lg md:text-2xl lg:text-3xl text-yellow-400'
+                            : 'text-base md:text-xl lg:text-2xl text-white/90'
                         }`}
                         style={rank === 1 ? { textShadow: '0 0 15px rgba(251, 191, 36, 0.6)' } : {}}
                       >
@@ -251,56 +255,56 @@ export const HallOfFameScreen = () => {
                         ).toLocaleString()}
                       </div>
                       {rank === 1 && (
-                        <div className="text-[10px] text-white/40 uppercase font-black">
-                          {periodTab === 'weekly' ? 'Weekly Score' : 'Total Score'}
+                        <div className="text-[9px] md:text-[10px] text-white/40 uppercase font-black hidden sm:block">
+                          {periodTab === 'weekly' ? 'Weekly' : 'Total'}
                         </div>
                       )}
                     </div>
                   </div>
                 );
               })}
-            <div className="h-4" />
+            <div className="h-2 md:h-4" />
           </div>
 
           <div
-            className="w-full px-6 md:px-8 py-5 mt-auto relative z-30"
+            className="w-full px-3 md:px-6 lg:px-8 py-3 md:py-4 lg:py-5 mt-auto relative z-30 flex-shrink-0"
             style={{
               background: 'rgba(45, 212, 191, 0.15)',
               borderTop: '2px solid rgba(45, 212, 191, 0.4)',
               boxShadow: '0 -10px 25px -5px rgba(45, 212, 191, 0.15)',
             }}
           >
-            <div className="flex items-center gap-4 md:gap-6">
-              <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-xl bg-teal-500/20 border border-teal-400/30 text-teal-300 font-black text-base md:text-xl">
+            <div className="flex items-center gap-2 md:gap-4 lg:gap-6">
+              <div className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 flex items-center justify-center rounded-xl bg-teal-500/20 border border-teal-400/30 text-teal-300 font-black text-xs md:text-base lg:text-xl flex-shrink-0">
                 #{userRank}
               </div>
 
               <div className="flex items-center gap-2 md:gap-3 flex-1 min-w-0">
                 <div
-                  className="w-10 h-10 md:w-12 md:h-12 bg-teal-400/20 rounded-full flex items-center justify-center border-2 border-teal-400/40 text-2xl md:text-3xl"
+                  className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12 bg-teal-400/20 rounded-full flex items-center justify-center border-2 border-teal-400/40 text-lg md:text-2xl lg:text-3xl flex-shrink-0"
                   style={{ boxShadow: '0 0 10px rgba(45, 212, 191, 0.2)' }}
                 >
                   👤
                 </div>
                 <div className="min-w-0">
-                  <div className="text-white font-bold text-base md:text-xl truncate">
+                  <div className="text-white font-bold text-sm md:text-base lg:text-xl truncate">
                     {currentUserDisplay || 'u/Username'}
                   </div>
-                  <div className="text-teal-400/80 text-[10px] font-black uppercase tracking-widest">
+                  <div className="text-teal-400/80 text-[9px] md:text-[10px] font-black uppercase tracking-widest hidden sm:block">
                     Personal Performance
                   </div>
                 </div>
               </div>
 
-              <div className="text-right">
+              <div className="text-right flex-shrink-0">
                 <div
-                  className="text-xl md:text-2xl font-bold text-white"
+                  className="text-base md:text-xl lg:text-2xl font-bold text-white"
                   style={{ textShadow: '0 0 15px rgba(45, 212, 191, 0.6)' }}
                 >
                   {userScore.toLocaleString()}
                 </div>
-                <div className="text-[10px] text-teal-400/60 uppercase font-black -mt-1">
-                  {periodTab === 'weekly' ? 'Weekly Score' : 'Total Score'}
+                <div className="text-[9px] md:text-[10px] text-teal-400/60 uppercase font-black -mt-1 hidden sm:block">
+                  {periodTab === 'weekly' ? 'Weekly' : 'Total'}
                 </div>
               </div>
             </div>
