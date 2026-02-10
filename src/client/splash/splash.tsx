@@ -7,6 +7,8 @@ import { createRoot } from 'react-dom/client';
 export const Splash = () => {
   const [isModerator, setIsModerator] = useState(false);
   const [checkingMod, setCheckingMod] = useState(true);
+  const [currentStreak, setCurrentStreak] = useState<number>(0);
+  const [loadingStreak, setLoadingStreak] = useState(true);
 
   useEffect(() => {
     const checkModStatus = async () => {
@@ -24,6 +26,26 @@ export const Splash = () => {
     };
 
     void checkModStatus();
+  }, []);
+
+  useEffect(() => {
+    const fetchStreak = async () => {
+      try {
+        const res = await fetch('/api/user-stats');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.stats?.streak?.current !== undefined) {
+            setCurrentStreak(data.stats.streak.current);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch streak:', error);
+      } finally {
+        setLoadingStreak(false);
+      }
+    };
+
+    void fetchStreak();
   }, []);
 
   return (
@@ -47,6 +69,18 @@ export const Splash = () => {
       )}
 
       <div className="relative z-10 w-full max-w-5xl flex flex-col items-center">
+        <div className="w-full flex justify-center md:justify-start items-center mb-8 md:mb-12 px-4 md:px-8">
+          {!loadingStreak && (
+            <div className="streak-badge px-4 py-2 md:px-5 md:py-3 lg:px-6 lg:py-4 rounded-full flex items-center gap-2 md:gap-3 group cursor-default">
+              <span className="material-symbols-outlined text-orange-500 text-xl md:text-2xl lg:text-3xl group-hover:scale-125 transition-transform">
+                local_fire_department
+              </span>
+              <span className="text-white font-bold text-xs md:text-sm lg:text-base xl:text-lg tracking-widest uppercase">
+                Daily Streak: <span className="text-orange-400 ml-1">{currentStreak}</span>
+              </span>
+            </div>
+          )}
+        </div>
         <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-center justify-center w-full">
           {/* Dial on the left */}
           <div className="flex flex-col items-center justify-center relative flex-shrink-0">

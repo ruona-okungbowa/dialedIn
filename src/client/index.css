@@ -291,6 +291,12 @@
     transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     will-change: transform;
   }
+  .streak-badge {
+    background: rgba(249, 115, 22, 0.2);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(249, 115, 22, 0.4);
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.2);
+  }
 
   .chunky-button {
     background: var(--game-yellow);
