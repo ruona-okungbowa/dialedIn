@@ -15,6 +15,11 @@ import {
   UserStatsResponse,
   SaveGameStateRequest,
   SaveGameStateResponse,
+  ModeratorPendingListResponse,
+  ModeratorApproveRequest,
+  ModeratorApproveResponse,
+  ModeratorRejectRequest,
+  ModeratorRejectResponse,
 } from '../shared/types/api';
 import type { LeaderboardEntry } from '../shared/types/api';
 import { redis, reddit, createServer, context, getServerPort } from '@devvit/web/server';
@@ -225,8 +230,26 @@ const getOrCreateDailyGame = async (subredditKey: string): Promise<DailyGame> =>
     }
   }
 
+  // Get approved user-generated spectrums
+  const allSubmissions = await getSpectrumLabForSubreddit(subredditKey);
+  let approvedSubmissions = allSubmissions
+    .filter((s) => s.status === 'approved' && s.clues && s.clues.length === 3)
+    .map((s) => ({
+      id: s.id,
+      leftLabel: s.leftLabel,
+      rightLabel: s.rightLabel,
+      clues: s.clues!,
+    }));
+
+  // Prevent using same spectrum twice in a row
+  const lastUsedKey = `lastUsedSpectrum:${subredditKey}`;
+  const lastUsed = await redis.get(lastUsedKey);
+  if (lastUsed && approvedSubmissions.length > 1) {
+    approvedSubmissions = approvedSubmissions.filter((s) => s.id !== lastUsed);
+  }
+
   // Get the daily configuration with real clues and targets
-  const dailyConfig = getDailyGameConfig(date);
+  const dailyConfig = getDailyGameConfig(date, approvedSubmissions);
 
   if (!dailyConfig) {
     throw new Error('Failed to get daily game configuration');
@@ -257,6 +280,12 @@ const getOrCreateDailyGame = async (subredditKey: string): Promise<DailyGame> =>
   };
 
   await redis.set(key, JSON.stringify(game));
+
+  // Store the spectrum ID to prevent reuse tomorrow
+  if (dailyConfig.day === -1) {
+    // Only track user-generated spectrums (day === -1 indicates user-generated)
+    await redis.set(lastUsedKey, dailyConfig.spectrum.id);
+  }
 
   return game;
 };
@@ -357,6 +386,25 @@ const saveBucketsForToday = async (
   const date = getTodayDate();
   const key = guessBucketsKey(date, subredditKey, roundIndex);
   await redis.set(key, JSON.stringify(buckets));
+};
+
+const isModerator = async (): Promise<boolean> => {
+  try {
+    if (!context.subredditId) return false;
+
+    const subreddit = await reddit.getSubredditById(context.subredditId);
+    if (!subreddit) return false;
+
+    const currentUser = await reddit.getCurrentUser();
+    if (!currentUser) return false;
+
+    const moderators = await subreddit.getModerators();
+    const modList = await moderators.all();
+
+    return modList.some((mod) => mod.username === currentUser.username);
+  } catch {
+    return false;
+  }
 };
 
 // Helper function to get the Monday of the current week
@@ -832,10 +880,22 @@ router.post<
       score: 0,
       upvotes: 0,
       downvotes: 0,
+      status: 'pending_review',
     };
 
     const next = [...submissions, submission].sort((a, b) => b.score - a.score);
     await saveSpectrumLabForSubreddit(subredditKey, next);
+
+    // Notify moderators about new submission
+    try {
+      await reddit.sendPrivateMessage({
+        to: `/r/${context.subredditName}`,
+        subject: 'New Spectrum Lab Submission',
+        text: `A new spectrum needs review:\n"${leftLabel}" ↔ "${rightLabel}"\n\nVisit the Moderator Dashboard to review.`,
+      });
+    } catch (e) {
+      console.warn('Failed to notify moderators:', e);
+    }
 
     const response: SpectrumLabSubmitResponse = {
       type: 'spectrum-lab-submit',
@@ -895,6 +955,9 @@ router.post<
       score: existing.score,
       upvotes: existing.upvotes,
       downvotes: existing.downvotes,
+      status: existing.status,
+      ...(existing.clues ? { clues: existing.clues } : {}),
+      ...(existing.rejectionReason ? { rejectionReason: existing.rejectionReason } : {}),
       ...(existing.sampleClue
         ? {
             sampleClue: existing.sampleClue,
@@ -1133,6 +1196,200 @@ router.get<{}, UserStatsResponse | { status: string; message: string }>(
     }
   }
 );
+
+// Moderator endpoints
+router.get<{}, { isModerator: boolean } | { status: string; message: string }>(
+  '/api/moderator/check',
+  async (_req, res): Promise<void> => {
+    try {
+      const isMod = await isModerator();
+      res.json({ isModerator: isMod });
+    } catch (error) {
+      console.error('API Moderator Check Error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Failed to check moderator status',
+      });
+    }
+  }
+);
+
+router.get<{}, ModeratorPendingListResponse | { status: string; message: string }>(
+  '/api/moderator/pending',
+  async (_req, res): Promise<void> => {
+    const subredditKey = getSubredditKey();
+
+    try {
+      if (!(await isModerator())) {
+        res.status(403).json({
+          status: 'error',
+          message: 'Moderator access required',
+        });
+        return;
+      }
+
+      const submissions = await getSpectrumLabForSubreddit(subredditKey);
+      const pending = submissions.filter((s) => s.status === 'pending_review');
+
+      const response: ModeratorPendingListResponse = {
+        type: 'moderator-pending-list',
+        submissions: pending,
+      };
+
+      res.json(response);
+    } catch (error) {
+      console.error('API Moderator Pending List Error:', error);
+      res.status(500).json({
+        status: 'error',
+        message: 'Failed to load pending submissions',
+      });
+    }
+  }
+);
+
+router.post<
+  {},
+  ModeratorApproveResponse | { status: string; message: string },
+  ModeratorApproveRequest
+>('/api/moderator/approve', async (req, res): Promise<void> => {
+  const subredditKey = getSubredditKey();
+  const { submissionId, clues } = req.body ?? {};
+
+  if (!submissionId || !clues || !Array.isArray(clues) || clues.length !== 3) {
+    res.status(400).json({
+      status: 'error',
+      message: 'submissionId and exactly 3 clues are required',
+    });
+    return;
+  }
+
+  // Validate clues
+  for (const clue of clues) {
+    if (
+      !clue.clue ||
+      typeof clue.seedTarget !== 'number' ||
+      clue.seedTarget < 0 ||
+      clue.seedTarget > 100
+    ) {
+      res.status(400).json({
+        status: 'error',
+        message: 'Each clue must have a clue string and seedTarget between 0-100',
+      });
+      return;
+    }
+  }
+
+  try {
+    if (!(await isModerator())) {
+      res.status(403).json({
+        status: 'error',
+        message: 'Moderator access required',
+      });
+      return;
+    }
+
+    const submissions = await getSpectrumLabForSubreddit(subredditKey);
+    const index = submissions.findIndex((s) => s.id === submissionId);
+
+    if (index === -1) {
+      res.status(404).json({
+        status: 'error',
+        message: 'Submission not found',
+      });
+      return;
+    }
+
+    const existing = submissions[index] as SpectrumSubmission;
+
+    const updated: SpectrumSubmission = {
+      ...existing,
+      status: 'approved',
+      clues,
+    };
+
+    const next = [...submissions];
+    next[index] = updated;
+
+    await saveSpectrumLabForSubreddit(subredditKey, next);
+
+    const response: ModeratorApproveResponse = {
+      type: 'moderator-approve',
+      submission: updated,
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('API Moderator Approve Error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to approve submission',
+    });
+  }
+});
+
+router.post<
+  {},
+  ModeratorRejectResponse | { status: string; message: string },
+  ModeratorRejectRequest
+>('/api/moderator/reject', async (req, res): Promise<void> => {
+  const subredditKey = getSubredditKey();
+  const { submissionId, rejectionReason } = req.body ?? {};
+
+  if (!submissionId) {
+    res.status(400).json({
+      status: 'error',
+      message: 'submissionId is required',
+    });
+    return;
+  }
+
+  try {
+    if (!(await isModerator())) {
+      res.status(403).json({
+        status: 'error',
+        message: 'Moderator access required',
+      });
+      return;
+    }
+
+    const submissions = await getSpectrumLabForSubreddit(subredditKey);
+    const index = submissions.findIndex((s) => s.id === submissionId);
+
+    if (index === -1) {
+      res.status(404).json({
+        status: 'error',
+        message: 'Submission not found',
+      });
+      return;
+    }
+
+    const existing = submissions[index] as SpectrumSubmission;
+
+    const updated: SpectrumSubmission = {
+      ...existing,
+      status: 'rejected',
+      ...(rejectionReason ? { rejectionReason } : {}),
+    };
+
+    const next = [...submissions];
+    next[index] = updated;
+
+    await saveSpectrumLabForSubreddit(subredditKey, next);
+
+    const response: ModeratorRejectResponse = {
+      type: 'moderator-reject',
+      submission: updated,
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('API Moderator Reject Error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to reject submission',
+    });
+  }
+});
 
 router.post('/internal/on-app-install', async (_req, res): Promise<void> => {
   try {

@@ -535,8 +535,43 @@ export const pickDailySpectrumsForSubreddit = (subredditId: string, date: string
 /**
  * Get the complete daily game configuration including rounds with clues and targets.
  * This is used by the server to generate the full DailyGame object.
+ *
+ * First checks for approved user-generated spectrums, then falls back to the default pool.
  */
-export const getDailyGameConfig = (date: string) => {
+export const getDailyGameConfig = (
+  date: string,
+  approvedSubmissions?: Array<{
+    id: string;
+    leftLabel: string;
+    rightLabel: string;
+    clues: Array<{ clue: string; seedTarget: number }>;
+  }>
+) => {
+  // If we have approved user-generated spectrums, use one of them
+  if (approvedSubmissions && approvedSubmissions.length > 0) {
+    const seed = hashString(date);
+    const index = seed % approvedSubmissions.length;
+    const submission = approvedSubmissions[index];
+
+    if (submission && submission.clues && submission.clues.length === 3) {
+      return {
+        day: -1, // Indicates user-generated
+        spectrum: {
+          id: submission.id,
+          leftLabel: submission.leftLabel,
+          rightLabel: submission.rightLabel,
+          difficulty: 'medium' as const,
+          tags: ['user-generated'],
+        },
+        rounds: submission.clues.map((c, i) => ({
+          clue: c.clue,
+          seedTarget: c.seedTarget,
+        })),
+      };
+    }
+  }
+
+  // Fall back to default pool
   const seed = hashString(date);
   const dayIndex = seed % DAILY_SPECTRUM_CONFIGS.length;
   return DAILY_SPECTRUM_CONFIGS[dayIndex];

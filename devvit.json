@@ -16,6 +16,9 @@
       },
       "lab": {
         "entry": "lab.html"
+      },
+      "moderator": {
+        "entry": "moderator.html"
       }
     }
   },

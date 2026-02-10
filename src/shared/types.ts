@@ -42,7 +42,7 @@ export type RoundConfig = {
    */
   maxScore: number;
   /**
-   * Optional “green band” width in dial units that counts as a strong hit.
+   * Optional "green band" width in dial units that counts as a strong hit.
    */
   greenBandWidth?: number;
 };
@@ -74,7 +74,7 @@ export type DailyGame = {
 };
 
 /**
- * Immutable record of a user’s guess for a particular round.
+ * Immutable record of a user's guess for a particular round.
  */
 export type Guess = {
   userId: string;
@@ -101,11 +101,11 @@ export type GuessResult = {
    */
   redditAverage: number;
   /**
-   * Absolute distance between the player’s guess and the target.
+   * Absolute distance between the player's guess and the target.
    */
   distanceFromTarget: number;
   /**
-   * Absolute distance between the player’s guess and the Reddit average.
+   * Absolute distance between the player's guess and the Reddit average.
    */
   distanceFromRedditAverage: number;
   /**
@@ -117,7 +117,7 @@ export type GuessResult = {
    */
   totalScoreAfterRound: number;
   /**
-   * Convenience flag for “perfect” rounds.
+   * Convenience flag for "perfect" rounds.
    */
   isPerfect?: boolean;
 };
@@ -185,11 +185,26 @@ export type SpectrumSubmission = {
   createdByUserId: string;
   createdAt: string;
   /**
-   * Derived score used for “hottest” style sorting, typically upvotes‑downvotes.
+   * Derived score used for "hottest" style sorting, typically upvotes‑downvotes.
    */
   score: number;
   upvotes: number;
   downvotes: number;
+  /**
+   * Moderation status: pending_review, approved, or rejected
+   */
+  status: 'pending_review' | 'approved' | 'rejected';
+  /**
+   * Moderator-curated clues with seed targets (only present when approved)
+   */
+  clues?: Array<{
+    clue: string;
+    seedTarget: number;
+  }>;
+  /**
+   * Optional rejection reason from moderator
+   */
+  rejectionReason?: string;
 };
 
 /**

@@ -127,3 +127,35 @@ export type SaveGameStateResponse = {
   type: 'save-game-state';
   success: boolean;
 };
+
+/**
+ * Moderation endpoints for Spectrum Lab
+ */
+
+export type ModeratorPendingListResponse = {
+  type: 'moderator-pending-list';
+  submissions: SpectrumSubmission[];
+};
+
+export type ModeratorApproveRequest = {
+  submissionId: string;
+  clues: Array<{
+    clue: string;
+    seedTarget: number;
+  }>;
+};
+
+export type ModeratorApproveResponse = {
+  type: 'moderator-approve';
+  submission: SpectrumSubmission;
+};
+
+export type ModeratorRejectRequest = {
+  submissionId: string;
+  rejectionReason?: string;
+};
+
+export type ModeratorRejectResponse = {
+  type: 'moderator-reject';
+  submission: SpectrumSubmission;
+};

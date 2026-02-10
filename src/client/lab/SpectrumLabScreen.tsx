@@ -1,4 +1,5 @@
 import { useEffect, useState, FormEvent } from 'react';
+import { exitExpandedMode } from '@devvit/web/client';
 
 import type { SpectrumSubmission } from '../../shared/types';
 import type {
@@ -102,6 +103,9 @@ export const SpectrumLabScreen = () => {
       setLeftLabel('');
       setRightLabel('');
       setSampleClue('');
+
+      // Show success message
+      alert('Submission Sent!\n\nYour spectrum is now pending moderator review.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -181,18 +185,18 @@ export const SpectrumLabScreen = () => {
 
         {/* Form Card */}
         <div
-          className="w-full p-6 md:p-8 lg:p-12 flex flex-col gap-6 md:gap-8"
+          className="w-full p-4 md:p-6 lg:p-8 xl:p-12 flex flex-col gap-4 md:gap-6 lg:gap-8"
           style={{
             background: 'rgba(255, 255, 255, 0.15)',
             backdropFilter: 'blur(20px)',
             border: '2px solid rgba(255, 255, 255, 0.2)',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-            borderRadius: '2.5rem',
+            borderRadius: '2rem',
           }}
         >
           {/* Preview Dial */}
           <div className="flex flex-col items-center">
-            <div className="relative w-48 md:w-64 h-24 md:h-32 overflow-hidden mb-3 md:mb-4">
+            <div className="relative w-40 md:w-56 lg:w-64 h-20 md:h-28 lg:h-32 overflow-hidden mb-2 md:mb-3 lg:mb-4">
               <div
                 className="absolute inset-0 shadow-inner"
                 style={{
@@ -205,20 +209,20 @@ export const SpectrumLabScreen = () => {
               />
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-[80%] bg-white rounded-t-full shadow-lg z-20" />
             </div>
-            <div className="flex justify-between w-48 md:w-64 text-white font-black uppercase text-[10px] md:text-xs tracking-widest px-2">
+            <div className="flex justify-between w-40 md:w-56 lg:w-64 text-white font-black uppercase text-[10px] md:text-xs tracking-widest px-2">
               <span className="truncate max-w-[45%]">{leftLabel || 'Left Label'}</span>
               <span className="truncate max-w-[45%] text-right">{rightLabel || 'Right Label'}</span>
             </div>
           </div>
 
           {/* Form Fields */}
-          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-            <div className="space-y-2">
+          <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4 lg:space-y-6">
+            <div className="space-y-1.5 md:space-y-2">
               <label className="text-white/70 font-bold text-xs md:text-sm uppercase tracking-widest ml-1">
                 Left Label
               </label>
               <input
-                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-base md:text-lg transition-all focus:border-teal-400 focus:outline-none"
+                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-sm md:text-base lg:text-lg transition-all focus:border-teal-400 focus:outline-none"
                 placeholder="e.g. Weak Coffee"
                 type="text"
                 value={leftLabel}
@@ -227,12 +231,12 @@ export const SpectrumLabScreen = () => {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5 md:space-y-2">
               <label className="text-white/70 font-bold text-xs md:text-sm uppercase tracking-widest ml-1">
                 Right Label
               </label>
               <input
-                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-base md:text-lg transition-all focus:border-teal-400 focus:outline-none"
+                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-sm md:text-base lg:text-lg transition-all focus:border-teal-400 focus:outline-none"
                 placeholder="e.g. Rocket Fuel"
                 type="text"
                 value={rightLabel}
@@ -241,12 +245,12 @@ export const SpectrumLabScreen = () => {
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1.5 md:space-y-2">
               <label className="text-white/70 font-bold text-xs md:text-sm uppercase tracking-widest ml-1">
                 Optional Clue
               </label>
               <input
-                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-base md:text-lg italic transition-all focus:border-teal-400 focus:outline-none"
+                className="w-full bg-white/10 border-2 border-white/20 rounded-2xl p-3 md:p-4 text-white placeholder-white/30 font-bold text-sm md:text-base lg:text-lg italic transition-all focus:border-teal-400 focus:outline-none"
                 placeholder="e.g. Espresso Shot"
                 type="text"
                 value={sampleClue}
@@ -256,17 +260,17 @@ export const SpectrumLabScreen = () => {
             </div>
 
             {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-3 md:p-4">
-                <p className="text-red-200 text-sm md:text-base font-medium">{error}</p>
+              <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-2.5 md:p-3 lg:p-4">
+                <p className="text-red-200 text-xs md:text-sm lg:text-base font-medium">{error}</p>
               </div>
             )}
 
             {/* Buttons */}
-            <div className="flex flex-col gap-3 md:gap-4 pt-2">
+            <div className="flex flex-col gap-2.5 md:gap-3 lg:gap-4 pt-1 md:pt-2">
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full chunky-button-yellow py-4 md:py-6 rounded-3xl flex items-center justify-center gap-2 md:gap-3 transition-all disabled:opacity-50"
+                className="w-full chunky-button-yellow py-3 md:py-4 lg:py-6 rounded-3xl flex items-center justify-center gap-2 md:gap-3 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 onMouseDown={(e) => {
                   if (!submitting) {
                     e.currentTarget.style.transform = 'translateY(3px)';
@@ -282,11 +286,21 @@ export const SpectrumLabScreen = () => {
                   e.currentTarget.style.boxShadow = '0 6px 0px #c2410c';
                 }}
               >
-                <span className="text-2xl md:text-3xl font-black uppercase tracking-tight text-white">
+                <span className="text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-tight text-white">
                   {submitting ? 'Submitting...' : 'Submit'}
                 </span>
               </button>
-              <button className="outline-button w-full  py-4 md:py-6 rounded-3xl flex items-center justify-center gap-2 md:gap-3 text-center text-white font-black uppercase text-xl tracking-widest">
+              <button
+                type="button"
+                onClick={async (e) => {
+                  try {
+                    await exitExpandedMode(e.nativeEvent);
+                  } catch (error) {
+                    console.error('Failed to exit expanded mode:', error);
+                  }
+                }}
+                className="outline-button w-full py-3 md:py-4 lg:py-6 rounded-3xl flex items-center justify-center gap-2 md:gap-3 text-center text-white font-black uppercase text-base md:text-lg lg:text-xl tracking-widest"
+              >
                 Cancel
               </button>
             </div>
@@ -294,9 +308,9 @@ export const SpectrumLabScreen = () => {
         </div>
 
         {/* Info Text */}
-        <p className="text-center text-white/50 text-xs md:text-sm px-4 md:px-8 leading-relaxed font-medium">
-          Your submission will be reviewed by the community. Popular spectrums may be featured in
-          future games!
+        <p className="text-center text-white/50 text-xs md:text-sm px-4 md:px-8 leading-relaxed font-medium mt-4 md:mt-6 lg:mt-8">
+          Your submission will be reviewed by moderators. Check back later to see if it's been
+          approved!
         </p>
       </main>
     </div>
