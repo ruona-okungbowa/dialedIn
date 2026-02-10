@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { LeaderboardResponse, UserStatsResponse } from '../../shared/types/api';
+import { exitExpandedMode } from '@devvit/web/client';
 
 type PeriodTab = 'weekly' | 'alltime';
 
@@ -305,6 +306,18 @@ export const HallOfFameScreen = () => {
             </div>
           </div>
         </div>
+        <button
+          onClick={async (e) => {
+            try {
+              await exitExpandedMode(e.nativeEvent);
+            } catch (error) {
+              console.error('Failed to exit expanded mode:', error);
+            }
+          }}
+          className="mt-12 chunky-button text-yellow-900 px-12 py-4 rounded-2xl font-bold text-2xl flex items-center gap-3 group"
+        >
+          BACK TO MENU
+        </button>
       </div>
     </div>
   );
