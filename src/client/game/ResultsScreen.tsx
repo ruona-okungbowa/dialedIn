@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import type { GuessResult } from '../../shared/types';
-import { requestExpandedMode } from '@devvit/web/client';
+import type { GuessResult, RoundSummary } from '../../shared/types';
+import { buildWavelengthString, buildEnhancedWavelengthString } from '../../shared/gameLogic';
 
 type ResultsScreenProps = {
   results: GuessResult[] | null;
   onPlayAgain?: () => void;
+  bucketsByRound?: number[][];
+  gameDate?: string;
 };
 
-export const ResultsScreen = ({ results }: ResultsScreenProps) => {
+export const ResultsScreen = ({ results, bucketsByRound, gameDate }: ResultsScreenProps) => {
   const [timeUntilNext, setTimeUntilNext] = useState('');
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
 
   useEffect(() => {
     const updateCountdown = () => {
@@ -43,6 +46,54 @@ export const ResultsScreen = ({ results }: ResultsScreenProps) => {
 
   const getDialRotation = (value: number) => {
     return -90 + (value / 100) * 180;
+  };
+
+  const handleShare = async () => {
+    if (!results?.length) return;
+
+    // Convert GuessResult[] to RoundSummary[]
+    const roundSummaries: RoundSummary[] = results.map((result) => ({
+      roundIndex: result.roundIndex,
+      dialValue: result.dialValue,
+      target: result.target,
+      redditAverage: result.redditAverage,
+      score: result.score,
+      distanceFromTarget: result.distanceFromTarget,
+    }));
+
+    // Debug logging
+    console.log('Share button clicked');
+    console.log('bucketsByRound:', bucketsByRound);
+    console.log('gameDate:', gameDate);
+    console.log('roundSummaries:', roundSummaries);
+
+    // Generate the shareable text - always use enhanced format
+    const shareText = buildEnhancedWavelengthString(roundSummaries, bucketsByRound, gameDate);
+
+    console.log('Generated share text:', shareText);
+    console.log('Share text length:', shareText.length);
+    console.log('Share text includes newlines:', shareText.includes('\n'));
+    console.log('Number of newlines:', (shareText.match(/\n/g) || []).length);
+
+    try {
+      // Copy to clipboard
+      await navigator.clipboard.writeText(shareText);
+      console.log('Successfully copied to clipboard');
+      setCopyStatus('copied');
+
+      // Reset status after 2 seconds
+      setTimeout(() => {
+        setCopyStatus('idle');
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      setCopyStatus('error');
+
+      // Reset status after 2 seconds
+      setTimeout(() => {
+        setCopyStatus('idle');
+      }, 2000);
+    }
   };
 
   return (
@@ -154,12 +205,25 @@ export const ResultsScreen = ({ results }: ResultsScreenProps) => {
               event_upcoming
             </span>
           </button>
-          <button className="w-full py-3 rounded-2xl flex items-center justify-center gap-2 bg-[#2dd4bf] shadow-[0_6px_0px_#6b7280]">
+          <button
+            onClick={handleShare}
+            className={`w-full py-3 rounded-2xl flex items-center justify-center gap-2 transition-all ${
+              copyStatus === 'copied'
+                ? 'bg-green-500 shadow-[0_6px_0px_#16a34a]'
+                : copyStatus === 'error'
+                  ? 'bg-red-500 shadow-[0_6px_0px_#dc2626]'
+                  : 'bg-[#2dd4bf] shadow-[0_6px_0px_#6b7280] active:shadow-[0_2px_0px_#6b7280] active:translate-y-1'
+            }`}
+          >
             <span className="text-base md:text-xl font-black uppercase tracking-tight text-slate-800">
-              Share to comments
+              {copyStatus === 'copied'
+                ? 'Copied!'
+                : copyStatus === 'error'
+                  ? 'Failed to Copy'
+                  : 'Share to Comments'}
             </span>
             <span className="material-symbols-outlined text-base md:text-xl text-slate-800">
-              share
+              {copyStatus === 'copied' ? 'check_circle' : 'share'}
             </span>
           </button>
           <div className="bg-white/10 px-4 py-1.5 rounded-full border border-white/20 mx-auto">

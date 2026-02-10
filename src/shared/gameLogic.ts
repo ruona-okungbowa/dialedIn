@@ -17,7 +17,7 @@ const clamp = (value: number, min: number, max: number): number =>
 export const dialValueToScore = (
   dialValue: number,
   target: number,
-  maxScore: number = MAX_ROUND_SCORE,
+  maxScore: number = MAX_ROUND_SCORE
 ): number => {
   const clampedDial = clamp(dialValue, 0, 100);
   const clampedTarget = clamp(target, 0, 100);
@@ -75,7 +75,7 @@ export const computeRedditAverage = (buckets: number[]): number => {
 export const updateStreak = (
   prev: StreakState,
   playedToday: boolean,
-  hitThreshold: boolean,
+  hitThreshold: boolean
 ): StreakState => {
   if (!playedToday) {
     // No change to streak if the user hasn’t played yet.
@@ -127,10 +127,104 @@ export const buildWavelengthString = (rounds: RoundSummary[]): string => {
   const actualTotal = rounds.reduce((sum, round) => sum + round.score, 0);
 
   const pct =
-    maxPossibleTotal > 0
-      ? Math.round(clamp((actualTotal / maxPossibleTotal) * 100, 0, 100))
-      : 0;
+    maxPossibleTotal > 0 ? Math.round(clamp((actualTotal / maxPossibleTotal) * 100, 0, 100)) : 0;
 
   return `[${emojis}] I was ${pct}% on the Wavelength today!`;
 };
 
+/**
+ * Generate a histogram visualization of community guesses using block characters.
+ *
+ * @param buckets - Array of guess counts per segment (e.g., 10 segments across 0-100)
+ * @returns ASCII/emoji histogram string
+ */
+const buildHistogram = (buckets: number[]): string => {
+  if (!buckets.length || buckets.every((count) => count === 0)) {
+    return '▂▂▂▂▂▂';
+  }
+
+  const maxCount = Math.max(...buckets);
+  const blocks = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+
+  return buckets
+    .map((count) => {
+      if (count === 0) return blocks[0];
+      const normalized = count / maxCount;
+      const blockIndex = Math.min(blocks.length - 1, Math.floor(normalized * blocks.length));
+      return blocks[blockIndex];
+    })
+    .join('');
+};
+
+/**
+ * Enhanced version of buildWavelengthString that includes community consensus visualization.
+ *
+ * Example output:
+ *   Dialed In - Jan 24, 2026
+ *   [🟢🟢🟡🔴] 92% Score
+ *   Round 1: My Guess: 85 | Community: ▂▃▆█▄▂
+ *   Round 2: My Guess: 70 | Community: █▆▃▂
+ *   Round 3: My Guess: 30 | Community: ▂▃█▆
+ *
+ * @param rounds - Array of round summaries with player guesses and scores
+ * @param bucketsByRound - Optional array of bucket data for each round (for community visualization)
+ * @param date - Optional date string for the game
+ * @returns Multi-line shareable string with community visualization
+ */
+export const buildEnhancedWavelengthString = (
+  rounds: RoundSummary[],
+  bucketsByRound?: number[][],
+  date?: string
+): string => {
+  if (!rounds.length) {
+    return 'I played Dialed In today!';
+  }
+
+  const emojis = rounds
+    .map((round) => {
+      if (round.score >= 90) return '🟢';
+      if (round.score >= 60) return '🟡';
+      return '🔴';
+    })
+    .join('');
+
+  const maxPossibleTotal = rounds.length * MAX_ROUND_SCORE;
+  const actualTotal = rounds.reduce((sum, round) => sum + round.score, 0);
+
+  const pct =
+    maxPossibleTotal > 0 ? Math.round(clamp((actualTotal / maxPossibleTotal) * 100, 0, 100)) : 0;
+
+  // Format date if provided
+  const dateStr = date
+    ? new Date(date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+  let result = `Dialed In - ${dateStr}\n`;
+  result += `[${emojis}] ${pct}% Score\n`;
+
+  // Add per-round breakdown with community visualization
+  if (bucketsByRound && bucketsByRound.length === rounds.length) {
+    rounds.forEach((round, index) => {
+      const buckets = bucketsByRound[index];
+      if (buckets) {
+        const histogram = buildHistogram(buckets);
+        result += `Round ${round.roundIndex + 1}: My Guess: ${Math.round(round.dialValue)} | Community: ${histogram}\n`;
+      }
+    });
+  } else {
+    // Fallback without community data
+    rounds.forEach((round) => {
+      result += `Round ${round.roundIndex + 1}: My Guess: ${Math.round(round.dialValue)} | Score: ${round.score}\n`;
+    });
+  }
+
+  return result.trim();
+};
