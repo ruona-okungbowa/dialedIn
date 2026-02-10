@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { requestExpandedMode } from '@devvit/web/client';
 import type { GuessResult, RoundSummary } from '../../shared/types';
-import { buildWavelengthString, buildEnhancedWavelengthString } from '../../shared/gameLogic';
+import { buildEnhancedWavelengthString } from '../../shared/gameLogic';
 
 type ResultsScreenProps = {
   results: GuessResult[] | null;
@@ -233,7 +234,10 @@ export const ResultsScreen = ({ results, bucketsByRound, gameDate }: ResultsScre
             </p>
           </div>
         </div>
-        <button className="outline-2 outline-white w-full py-3 rounded-3xl text-white font-black text-base md:text-xl uppercase tracking-widest flex items-center justify-center gap-2">
+        <button
+          onClick={(e) => requestExpandedMode(e.nativeEvent, 'hof')}
+          className="outline-2 outline-white w-full py-3 rounded-3xl text-white font-black text-base md:text-xl uppercase tracking-widest flex items-center justify-center gap-2"
+        >
           <span className="material-symbols-outlined">leaderboard</span>
           Hall of Fame
         </button>

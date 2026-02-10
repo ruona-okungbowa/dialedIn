@@ -26,7 +26,7 @@ import { redis, reddit, createServer, context, getServerPort } from '@devvit/web
 import { createPost } from './core/post';
 import type { DailyGame, GuessResult, SpectrumSubmission, UserStats } from '../shared/types';
 import { computeRedditAverage, dialValueToScore, updateStreak } from '../shared/gameLogic';
-import { pickDailySpectrumsForSubreddit, getDailyGameConfig } from '../shared/data/spectrums';
+import { getDailyGameConfig } from '../shared/data/spectrums';
 
 const app = express();
 
