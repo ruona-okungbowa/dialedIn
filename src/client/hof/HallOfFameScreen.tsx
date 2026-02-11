@@ -118,7 +118,7 @@ export const HallOfFameScreen = () => {
 
   return (
     <div
-      className="relative flex h-full w-full flex-col items-center overflow-y-auto py-4 px-4 text-white"
+      className="relative flex h-full w-full flex-col items-center overflow-hidden py-4 px-4 text-white"
       style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)' }}
     >
       <div className="fixed inset-0 vibrant-pattern pointer-events-none" />
@@ -199,7 +199,7 @@ export const HallOfFameScreen = () => {
             {error && <p className="text-sm text-red-400 text-center py-4">{error}</p>}
 
             {!loading &&
-              activeEntries.slice(0, 10).map((entry, index) => {
+              activeEntries.map((entry, index) => {
                 const rank = index + 1;
                 const isTop3 = rank <= 3;
 
