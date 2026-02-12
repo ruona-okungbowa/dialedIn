@@ -44,6 +44,8 @@ const SPECTRUM_LAB_KEY = (subredditKey: string): string => `spectrumLab:${subred
 const USER_STATS_COLLECTION_KEY = 'userStatsCollection';
 const USER_VOTES_KEY = (subredditKey: string, userKey: string): string =>
   `userVotes:${subredditKey}:${userKey}`;
+const NEXT_DAY_SPECTRUM_KEY = (subredditKey: string, date: string): string =>
+  `nextDaySpectrum:${subredditKey}:${date}`;
 
 type UserStatsCollection = Record<string, UserStats>;
 
@@ -224,6 +226,56 @@ const saveUserVotes = async (
   await redis.set(key, JSON.stringify(votes));
 };
 
+/**
+ * Select tomorrow's spectrum based on community votes.
+ * Called at 8pm when today's results unlock.
+ * Picks the highest-voted pending_review spectrum, or falls back to default.
+ */
+const selectTomorrowSpectrum = async (subredditKey: string): Promise<void> => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowDate = tomorrow.toISOString().slice(0, 10) + '-dev';
+
+  // Get all pending_review submissions sorted by score
+  const allSubmissions = await getSpectrumLabForSubreddit(subredditKey);
+  const pendingWithVotes = allSubmissions
+    .filter((s) => s.status === 'pending_review' && s.clues && s.clues.length === 3 && s.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  let selectedConfig;
+
+  if (pendingWithVotes.length > 0) {
+    // Use the highest-voted spectrum
+    const winner = pendingWithVotes[0]!;
+    selectedConfig = {
+      day: -1, // Indicates user-generated
+      spectrum: {
+        id: winner.id,
+        leftLabel: winner.leftLabel,
+        rightLabel: winner.rightLabel,
+        difficulty: 'medium' as const,
+        tags: ['user-generated'],
+      },
+      rounds: winner.clues!.map((c) => ({
+        clue: c.clue,
+      })),
+    };
+
+    // Mark the winning spectrum as approved
+    const updatedSubmissions = allSubmissions.map((s) =>
+      s.id === winner.id ? { ...s, status: 'approved' as const } : s
+    );
+    await saveSpectrumLabForSubreddit(subredditKey, updatedSubmissions);
+  } else {
+    // No votes, use default spectrum
+    selectedConfig = getDailyGameConfig(tomorrowDate);
+  }
+
+  // Store the selected spectrum for tomorrow
+  const key = NEXT_DAY_SPECTRUM_KEY(subredditKey, tomorrowDate);
+  await redis.set(key, JSON.stringify(selectedConfig));
+};
+
 const getAllUserStats = async (): Promise<UserStatsCollection> => {
   const raw = await redis.get(USER_STATS_COLLECTION_KEY);
   if (!raw) return {};
@@ -244,17 +296,31 @@ const saveAllUserStats = async (stats: UserStatsCollection): Promise<void> => {
   await redis.set(USER_STATS_COLLECTION_KEY, JSON.stringify(stats));
 };
 
-const getOrCreateDailyGame = async (subredditKey: string): Promise<DailyGame> => {
-  const date = getTodayDate();
-  const key = dailyGameKey(date, subredditKey);
+/**
+ * Pre-select tomorrow's spectrum if it's after 8pm and not already selected.
+ * This ensures the next day's spectrum is chosen from today's approved submissions.
+ */
+const preSelectTomorrowsSpectrumIfNeeded = async (subredditKey: string): Promise<void> => {
+  const now = new Date();
+  const currentHour = now.getHours();
 
-  const existing = await redis.get(key);
+  // Only pre-select if it's after 8pm (20:00)
+  if (currentHour < 20) {
+    return;
+  }
+
+  // Calculate tomorrow's date
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowDate = tomorrow.toISOString().slice(0, 10) + '-dev';
+
+  // Check if tomorrow's spectrum is already pre-selected
+  const preSelectedKey = NEXT_DAY_SPECTRUM_KEY(subredditKey, tomorrowDate);
+  const existing = await redis.get(preSelectedKey);
+
   if (existing) {
-    try {
-      return JSON.parse(existing) as DailyGame;
-    } catch {
-      // fall through and regenerate if parsing fails
-    }
+    // Already pre-selected, nothing to do
+    return;
   }
 
   // Get approved user-generated spectrums
@@ -275,11 +341,62 @@ const getOrCreateDailyGame = async (subredditKey: string): Promise<DailyGame> =>
     approvedSubmissions = approvedSubmissions.filter((s) => s.id !== lastUsed);
   }
 
-  // Get the daily configuration with real clues and targets
-  const dailyConfig = getDailyGameConfig(date, approvedSubmissions);
+  // Get tomorrow's configuration with approved submissions
+  const tomorrowConfig = getDailyGameConfig(tomorrowDate, approvedSubmissions);
+
+  if (tomorrowConfig) {
+    // Store the pre-selected spectrum for tomorrow
+    await redis.set(preSelectedKey, JSON.stringify(tomorrowConfig));
+    console.log(`Pre-selected spectrum for ${tomorrowDate}`);
+  }
+};
+
+const getOrCreateDailyGame = async (subredditKey: string): Promise<DailyGame> => {
+  const date = getTodayDate();
+  const key = dailyGameKey(date, subredditKey);
+
+  const existing = await redis.get(key);
+  if (existing) {
+    try {
+      // Trigger pre-selection for tomorrow if needed (fire and forget)
+      void preSelectTomorrowsSpectrumIfNeeded(subredditKey);
+      return JSON.parse(existing) as DailyGame;
+    } catch {
+      // fall through and regenerate if parsing fails
+    }
+  }
+
+  // Check if there's a pre-selected spectrum from yesterday's 8pm selection
+  const preSelectedKey = NEXT_DAY_SPECTRUM_KEY(subredditKey, date);
+  const preSelectedRaw = await redis.get(preSelectedKey);
+
+  let dailyConfig;
+  let usedSpectrumId: string | undefined;
+
+  if (preSelectedRaw) {
+    // Use the pre-selected spectrum from yesterday's 8pm
+    try {
+      dailyConfig = JSON.parse(preSelectedRaw);
+      usedSpectrumId = dailyConfig.spectrum?.id;
+      // Clean up the pre-selected key after using it
+      await redis.del(preSelectedKey);
+    } catch {
+      // If parsing fails, fall back to default
+      dailyConfig = getDailyGameConfig(date);
+    }
+  } else {
+    // No pre-selected spectrum, use default
+    dailyConfig = getDailyGameConfig(date);
+  }
 
   if (!dailyConfig) {
     throw new Error('Failed to get daily game configuration');
+  }
+
+  // Track which spectrum was used to prevent repetition
+  if (usedSpectrumId) {
+    const lastUsedKey = `lastUsedSpectrum:${subredditKey}`;
+    await redis.set(lastUsedKey, usedSpectrumId);
   }
 
   // Use the spectrum from the daily config
@@ -291,12 +408,14 @@ const getOrCreateDailyGame = async (subredditKey: string): Promise<DailyGame> =>
   ];
 
   // Build rounds from the daily config
-  const rounds: DailyGame['rounds'] = dailyConfig.rounds.map((round, index) => ({
-    roundIndex: index,
-    clue: round.clue,
-    target: 50, // Placeholder - will be calculated from community average after 8pm
-    maxScore: 100,
-  }));
+  const rounds: DailyGame['rounds'] = dailyConfig.rounds.map(
+    (round: { clue: string }, index: number) => ({
+      roundIndex: index,
+      clue: round.clue,
+      target: 50, // Placeholder - will be calculated from community average after 8pm
+      maxScore: 100,
+    })
+  );
 
   const game: DailyGame = {
     date,
@@ -308,11 +427,8 @@ const getOrCreateDailyGame = async (subredditKey: string): Promise<DailyGame> =>
 
   await redis.set(key, JSON.stringify(game));
 
-  // Store the spectrum ID to prevent reuse tomorrow
-  if (dailyConfig.day === -1) {
-    // Only track user-generated spectrums (day === -1 indicates user-generated)
-    await redis.set(lastUsedKey, dailyConfig.spectrum.id);
-  }
+  // Trigger pre-selection for tomorrow if needed (fire and forget)
+  void preSelectTomorrowsSpectrumIfNeeded(subredditKey);
 
   return game;
 };
@@ -600,6 +716,21 @@ router.get<{}, DailyGameResponse | { status: string; message: string }>(
 
       // Check if results are locked
       const lockStatus = getResultsLockStatus(game.createdAt);
+
+      // If results just unlocked, select tomorrow's spectrum
+      if (!lockStatus.isLocked) {
+        // Check if we've already selected tomorrow's spectrum
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrowDate = tomorrow.toISOString().slice(0, 10) + '-dev';
+        const tomorrowKey = NEXT_DAY_SPECTRUM_KEY(subredditKey, tomorrowDate);
+        const alreadySelected = await redis.get(tomorrowKey);
+
+        if (!alreadySelected) {
+          // Select tomorrow's spectrum based on votes
+          await selectTomorrowSpectrum(subredditKey);
+        }
+      }
 
       const response: DailyGameResponse = {
         type: 'daily-game',
