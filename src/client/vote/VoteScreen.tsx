@@ -135,7 +135,7 @@ export const VoteScreen = () => {
 
   return (
     <div
-      className="relative flex h-full w-full flex-col overflow-hidden py-4 md:py-8 px-4 md:px-6"
+      className="fixed inset-0 flex flex-col overflow-hidden"
       style={{ background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)' }}
     >
       {/* Pattern overlay */}
@@ -155,8 +155,8 @@ export const VoteScreen = () => {
       </div>
 
       {/* Header */}
-      <header className="relative z-20 w-full max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 md:gap-6 mb-6 md:mb-12 flex-shrink-0">
-        <div className="flex items-center gap-4">
+      <header className="relative z-20 w-full max-w-6xl mx-auto flex flex-col gap-3 px-4 pt-4 pb-3 flex-shrink-0">
+        <div className="flex items-center justify-between w-full">
           <button
             onClick={async (e) => {
               try {
@@ -165,7 +165,7 @@ export const VoteScreen = () => {
                 console.error('Failed to exit expanded mode:', error);
               }
             }}
-            className="text-white px-4 md:px-6 py-2 md:py-3 rounded-2xl font-black uppercase tracking-wider flex items-center gap-2 transition-all text-sm md:text-base"
+            className="text-white px-3 py-2 rounded-xl font-black uppercase tracking-wider flex items-center gap-2 transition-all text-xs"
             style={{
               background: '#8b5cf6',
               boxShadow: '0 4px 0px #5b21b6',
@@ -183,62 +183,62 @@ export const VoteScreen = () => {
               e.currentTarget.style.boxShadow = '0 4px 0px #5b21b6';
             }}
           >
-            <span className="material-symbols-outlined text-lg md:text-xl">arrow_back</span>
-            <span className="hidden sm:inline">Back to Menu</span>
+            <span className="material-symbols-outlined text-base">arrow_back</span>
+            <span>Back</span>
           </button>
+
+          <div className="flex items-center gap-2">
+            <span className="text-white/70 font-black text-[10px] uppercase tracking-widest hidden sm:inline">
+              Sort:
+            </span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="bg-white/10 border-2 border-white/20 rounded-lg px-2 py-1 pr-6 text-white font-bold focus:ring-0 focus:border-white transition-all outline-none text-xs"
+              style={{
+                appearance: 'none',
+                backgroundImage:
+                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")",
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'right 0.25rem center',
+                backgroundSize: '1rem',
+              }}
+            >
+              <option value="top">Top</option>
+              <option value="new">New</option>
+              <option value="rising">Rising</option>
+            </select>
+          </div>
         </div>
 
         <div className="text-center">
-          <h1 className="text-white font-black text-3xl md:text-4xl lg:text-5xl tracking-tighter uppercase italic drop-shadow-lg">
+          <h1 className="text-white font-black text-2xl sm:text-3xl md:text-4xl tracking-tighter uppercase italic drop-shadow-lg">
             Spectrum Gallery
           </h1>
-          <p className="text-white/80 font-bold text-xs md:text-sm tracking-widest uppercase mt-1">
+          <p className="text-white/80 font-bold text-[10px] sm:text-xs tracking-widest uppercase mt-1">
             Community Submissions
           </p>
         </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-white/70 font-black text-xs uppercase tracking-widest">
-            Sort By:
-          </span>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortOption)}
-            className="bg-white/10 border-2 border-white/20 rounded-xl px-3 md:px-4 py-2 pr-8 md:pr-10 text-white font-bold focus:ring-0 focus:border-white transition-all outline-none text-sm md:text-base"
-            style={{
-              appearance: 'none',
-              backgroundImage:
-                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")",
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 0.5rem center',
-              backgroundSize: '1.25rem',
-            }}
-          >
-            <option value="top">Top</option>
-            <option value="new">New</option>
-            <option value="rising">Rising</option>
-          </select>
-        </div>
       </header>
 
-      {/* Main Content */}
-      <main className="relative z-10 w-full max-w-6xl mx-auto flex-1 overflow-y-auto overflow-x-hidden">
+      {/* Main Content - Scrollable */}
+      <main className="relative z-10 w-full max-w-6xl mx-auto flex-1 overflow-y-auto px-4 pb-4">
         {error && (
-          <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 mb-6">
-            <p className="text-red-200 text-sm font-medium">{error}</p>
+          <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-3 mb-4">
+            <p className="text-red-200 text-xs sm:text-sm font-medium">{error}</p>
           </div>
         )}
 
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <p className="text-white text-xl font-bold">Loading submissions...</p>
+            <p className="text-white text-lg font-bold">Loading submissions...</p>
           </div>
         ) : sortedSubmissions.length === 0 ? (
           <div className="flex items-center justify-center py-20">
-            <p className="text-white/70 text-lg font-bold">No submissions yet. Be the first!</p>
+            <p className="text-white/70 text-base font-bold">No submissions yet. Be the first!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:gap-6 pb-6">
+          <div className="space-y-3 sm:space-y-4">
             {sortedSubmissions.map((submission) => {
               const badge = getBadge(submission);
               const isVoting = votingId === submission.id;
@@ -248,17 +248,17 @@ export const VoteScreen = () => {
               return (
                 <div
                   key={submission.id}
-                  className="flex flex-col md:flex-row overflow-hidden transition-all hover:translate-y-[-4px]"
+                  className="flex flex-col sm:flex-row overflow-hidden transition-all"
                   style={{
                     background: 'rgba(255, 255, 255, 0.12)',
                     backdropFilter: 'blur(20px)',
                     border: '1px solid rgba(255, 255, 255, 0.2)',
                     boxShadow: '0 15px 35px -5px rgba(0, 0, 0, 0.3)',
-                    borderRadius: '2rem',
+                    borderRadius: '1.5rem',
                   }}
                 >
                   {/* Vote Section */}
-                  <div className="bg-black/20 md:w-24 flex flex-row md:flex-col items-center justify-center gap-3 md:gap-4 p-3 md:p-0">
+                  <div className="bg-black/20 sm:w-20 flex flex-row sm:flex-col items-center justify-center gap-2 sm:gap-3 p-2 sm:p-0">
                     <button
                       onClick={() => handleVote(submission.id, 'up')}
                       disabled={isVoting || hasVoted}
@@ -266,7 +266,7 @@ export const VoteScreen = () => {
                       title={hasVoted ? 'You have already voted' : 'Upvote'}
                     >
                       <span
-                        className={`material-symbols-outlined text-4xl md:text-5xl font-black transition-colors ${
+                        className={`material-symbols-outlined text-3xl sm:text-4xl font-black transition-colors ${
                           userVote === 'up'
                             ? 'text-[#f472b6]'
                             : 'text-white/40 group-hover:text-[#f472b6]'
@@ -275,7 +275,7 @@ export const VoteScreen = () => {
                         expand_less
                       </span>
                     </button>
-                    <span className="text-white font-black text-xl md:text-2xl min-w-[3rem] text-center">
+                    <span className="text-white font-black text-lg sm:text-xl min-w-[2.5rem] text-center">
                       {submission.score}
                     </span>
                     <button
@@ -285,7 +285,7 @@ export const VoteScreen = () => {
                       title={hasVoted ? 'You have already voted' : 'Downvote'}
                     >
                       <span
-                        className={`material-symbols-outlined text-4xl md:text-5xl font-black transition-colors ${
+                        className={`material-symbols-outlined text-3xl sm:text-4xl font-black transition-colors ${
                           userVote === 'down'
                             ? 'text-cyan-400'
                             : 'text-white/40 group-hover:text-cyan-400'
@@ -297,10 +297,10 @@ export const VoteScreen = () => {
                   </div>
 
                   {/* Content Section */}
-                  <div className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col lg:flex-row gap-4 md:gap-6 lg:gap-8 items-center">
+                  <div className="flex-1 p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-4 items-center">
                     {/* Dial Preview */}
                     <div className="flex-shrink-0 flex flex-col items-center">
-                      <div className="relative w-40 md:w-48 h-20 md:h-24 overflow-hidden mb-2 md:mb-3">
+                      <div className="relative w-32 sm:w-40 h-16 sm:h-20 overflow-hidden mb-2">
                         <div
                           className="absolute inset-0 opacity-80"
                           style={{
@@ -314,7 +314,7 @@ export const VoteScreen = () => {
                         />
                         <div className="absolute bottom-0 w-full h-0.5 bg-white/20" />
                       </div>
-                      <div className="flex justify-between w-40 md:w-48 text-white/90 font-black uppercase text-[10px] tracking-widest">
+                      <div className="flex justify-between w-32 sm:w-40 text-white/90 font-black uppercase text-[9px] tracking-widest">
                         <span className="truncate max-w-[45%]">{submission.leftLabel}</span>
                         <span className="truncate max-w-[45%]">{submission.rightLabel}</span>
                       </div>
@@ -323,11 +323,11 @@ export const VoteScreen = () => {
                     {/* Clues Section */}
                     {submission.sampleClue && (
                       <div className="flex-1 w-full">
-                        <div className="bg-white/5 border border-white/10 rounded-2xl p-3 md:p-4">
-                          <span className="text-[#fbbf24] text-[10px] font-black uppercase tracking-widest mb-1 block">
+                        <div className="bg-white/5 border border-white/10 rounded-xl p-2 sm:p-3">
+                          <span className="text-[#fbbf24] text-[9px] font-black uppercase tracking-widest mb-1 block">
                             Sample Clue
                           </span>
-                          <p className="text-white font-bold text-base md:text-lg leading-tight">
+                          <p className="text-white font-bold text-sm sm:text-base leading-tight">
                             {submission.sampleClue}
                           </p>
                         </div>
@@ -336,9 +336,9 @@ export const VoteScreen = () => {
 
                     {/* Badge */}
                     {badge && (
-                      <div className="lg:w-32 flex justify-center">
+                      <div className="flex justify-center">
                         <span
-                          className={`text-white text-[10px] font-black uppercase tracking-widest px-3 md:px-4 py-2 rounded-full whitespace-nowrap`}
+                          className={`text-white text-[9px] font-black uppercase tracking-widest px-2 sm:px-3 py-1 rounded-full whitespace-nowrap`}
                           style={
                             badge.className === 'badge-trending'
                               ? {
@@ -359,21 +359,23 @@ export const VoteScreen = () => {
                 </div>
               );
             })}
+
+            {/* Footer Info */}
+            <div className="mt-6 pb-4 text-center">
+              <div className="bg-indigo-900/40 p-3 sm:p-4 rounded-2xl border border-white/10 inline-block max-w-xl mx-auto">
+                <p className="text-white/90 text-[10px] sm:text-xs font-semibold flex items-center gap-2 justify-center flex-wrap">
+                  <span className="material-symbols-outlined text-[#fbbf24] flex-shrink-0 text-sm">
+                    info
+                  </span>
+                  <span>
+                    Vote for your favorite spectrums! Top-voted submissions are selected daily at
+                    8pm.
+                  </span>
+                </p>
+              </div>
+            </div>
           </div>
         )}
-
-        {/* Footer Info */}
-        <footer className="relative z-10 mt-8 md:mt-16 pb-6 md:pb-8 text-center">
-          <div className="bg-indigo-900/40 p-4 md:p-6 rounded-3xl border border-white/10 inline-block max-w-xl">
-            <p className="text-white/90 text-xs md:text-sm font-semibold flex items-center gap-3 justify-center flex-wrap">
-              <span className="material-symbols-outlined text-[#fbbf24] flex-shrink-0">info</span>
-              <span>
-                Vote for your favorite spectrums! Top-voted submissions are added to the game core
-                rotation every week.
-              </span>
-            </p>
-          </div>
-        </footer>
       </main>
     </div>
   );

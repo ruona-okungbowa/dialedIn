@@ -232,7 +232,7 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
     }
 
     playSound('dial-lock');
-    triggerHapticFeedback([10, 20, 10]);
+    triggerHapticFeedback([30, 50, 30]); // Stronger haptic pattern for button press
 
     setSubmitting(true);
     setError(null);
@@ -292,7 +292,7 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
       // If this was the last round, go straight to completion
       if (currentRoundIndex >= 2) {
         playSound('success');
-        triggerHapticFeedback([20, 30, 20]);
+        triggerHapticFeedback([50, 100, 50, 100, 50]); // Celebration pattern
 
         setTimeout(() => {
           setPhase('finished');
@@ -307,7 +307,7 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
       } else {
         // Move to next round
         playSound('dial-move');
-        triggerHapticFeedback(10);
+        triggerHapticFeedback(25); // Increased from 10ms
         const nextIndex = currentRoundIndex + 1;
         setCurrentRoundIndex(nextIndex);
         setDialValue(50);
@@ -339,7 +339,7 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
     if (phase !== 'playing') return;
 
     const diff = Math.abs(dialValue - lastDialValueRef.current);
-    if (diff > 2) {
+    if (diff > 3) {
       // Throttle sound/haptic feedback
       if (dialThrottleRef.current) {
         clearTimeout(dialThrottleRef.current);
@@ -347,9 +347,9 @@ export const GameScreen = ({ onGameComplete }: GameScreenProps) => {
 
       dialThrottleRef.current = setTimeout(() => {
         playSound('dial-move');
-        triggerHapticFeedback(5);
+        triggerHapticFeedback(15); // Increased from 5 to 15ms for more noticeable feedback
         lastDialValueRef.current = dialValue;
-      }, 50);
+      }, 100); // Increased from 50ms to reduce frequency
     }
 
     return () => {
