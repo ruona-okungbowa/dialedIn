@@ -19,6 +19,7 @@ import {
 import type { LeaderboardEntry } from '../shared/types/api';
 import { redis, reddit, createServer, context, getServerPort } from '@devvit/web/server';
 import { createPost } from './core/post';
+import { assignUserFlair } from './core/flair';
 import type { DailyGame, GuessResult, SpectrumSubmission, UserStats } from '../shared/types';
 import { computeRedditAverage, dialValueToScore, updateStreak } from '../shared/gameLogic';
 import { getDailyGameConfig } from '../shared/data/spectrums';
@@ -261,6 +262,32 @@ const selectTomorrowSpectrum = async (subredditKey: string): Promise<void> => {
       s.id === winner.id ? { ...s, status: 'approved' as const } : s
     );
     await saveSpectrumLabForSubreddit(subredditKey, updatedSubmissions);
+
+    // Assign spectrum creator flair to the winner
+    if (winner.createdByUserId) {
+      try {
+        // Try to get username from userId
+        let username: string | undefined;
+        if (winner.createdByUserId.startsWith('t2_')) {
+          const user = await reddit.getUserById(winner.createdByUserId);
+          username = user?.username;
+        } else {
+          username = winner.createdByUserId;
+        }
+
+        if (username) {
+          await assignUserFlair(username, 'spectrum-creator');
+          console.log(
+            `Assigned spectrum creator flair to ${username} for spectrum: ${winner.leftLabel} ↔ ${winner.rightLabel}`
+          );
+        }
+      } catch (error) {
+        console.error(
+          `Failed to assign spectrum creator flair to ${winner.createdByUserId}:`,
+          error
+        );
+      }
+    }
   } else {
     // No votes, use default spectrum
     selectedConfig = getDailyGameConfig(tomorrowDate);
@@ -638,6 +665,15 @@ const updateUserStatsAfterGameCompletion = async (
   };
 
   await saveAllUserStats(allStats);
+
+  // Assign 7-day streak flair if user reaches 7 days
+  if (resolvedUsername && streak.current >= 7) {
+    try {
+      await assignUserFlair(resolvedUsername, '7-day-streak');
+    } catch (error) {
+      console.error(`Failed to assign 7-day streak flair to ${resolvedUsername}:`, error);
+    }
+  }
 };
 
 router.get<{ postId: string }, InitResponse | { status: string; message: string }>(
@@ -1381,6 +1417,19 @@ router.get<{}, LeaderboardResponse | { status: string; message: string }>(
         mostControversial: mostControversial.map(updateEntryUsername),
       };
 
+      // Assign daily winner flair to the top daily scorer
+      if (byDailyScore.length > 0 && byDailyScore[0]!.dailyScore > 0) {
+        const winner = byDailyScore[0]!;
+        const winnerUsername = winner.username || usernameMap.get(winner.userId);
+        if (winnerUsername) {
+          try {
+            await assignUserFlair(winnerUsername, 'daily-winner');
+          } catch (error) {
+            console.error(`Failed to assign daily winner flair to ${winnerUsername}:`, error);
+          }
+        }
+      }
+
       res.json(response);
     } catch (error) {
       console.error('API Leaderboard Error:', error);
@@ -1535,7 +1584,32 @@ router.post('/internal/scheduler/create-daily-post', async (_req, res): Promise<
   try {
     console.log(`Daily post creation triggered at ${new Date().toISOString()}`);
 
-    const post = await createPost();
+    const date = getTodayDate();
+    const subredditKey = getSubredditKey();
+
+    // Get today's spectrum configuration
+    const nextDaySpectrumKey = NEXT_DAY_SPECTRUM_KEY(subredditKey, date);
+    const preSelectedSpectrumJson = await redis.get(nextDaySpectrumKey);
+
+    let dailyConfig;
+    if (preSelectedSpectrumJson) {
+      try {
+        dailyConfig = JSON.parse(preSelectedSpectrumJson);
+      } catch {
+        dailyConfig = getDailyGameConfig(date);
+      }
+    } else {
+      dailyConfig = getDailyGameConfig(date);
+    }
+
+    // Format date for title (e.g., "Feb 12")
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    // Create dynamic title with spectrum
+    const dynamicTitle = `Daily Game (${formattedDate}): ${dailyConfig.leftLabel} ↔ ${dailyConfig.rightLabel}`;
+
+    const post = await createPost({ title: dynamicTitle });
 
     console.log(`Daily post created successfully: ${post.id} in r/${context.subredditName}`);
 
@@ -1554,7 +1628,32 @@ router.post('/internal/scheduler/create-daily-post', async (_req, res): Promise<
 
 router.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
   try {
-    const post = await createPost();
+    const date = getTodayDate();
+    const subredditKey = getSubredditKey();
+
+    // Get today's spectrum configuration
+    const nextDaySpectrumKey = NEXT_DAY_SPECTRUM_KEY(subredditKey, date);
+    const preSelectedSpectrumJson = await redis.get(nextDaySpectrumKey);
+
+    let dailyConfig;
+    if (preSelectedSpectrumJson) {
+      try {
+        dailyConfig = JSON.parse(preSelectedSpectrumJson);
+      } catch {
+        dailyConfig = getDailyGameConfig(date);
+      }
+    } else {
+      dailyConfig = getDailyGameConfig(date);
+    }
+
+    // Format date for title (e.g., "Feb 12")
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    // Create dynamic title with spectrum
+    const dynamicTitle = `Daily Game (${formattedDate}): ${dailyConfig.leftLabel} ↔ ${dailyConfig.rightLabel}`;
+
+    const post = await createPost({ title: dynamicTitle });
 
     res.json({
       navigateTo: `https://reddit.com/r/${context.subredditName}/comments/${post.id}`,
