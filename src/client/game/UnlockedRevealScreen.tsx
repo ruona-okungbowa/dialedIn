@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { GuessResult } from '../../shared/types';
 import { useSoundHaptics } from '../hooks/useSoundHaptics';
+import { buildEnhancedWavelengthString } from '../../shared/gameLogic';
 
 type UnlockedRevealScreenProps = {
   results: GuessResult[];
@@ -9,6 +10,7 @@ type UnlockedRevealScreenProps = {
 
 export const UnlockedRevealScreen = ({ results, onComplete }: UnlockedRevealScreenProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [copySuccess, setCopySuccess] = useState(false);
   const { playSound, triggerHapticFeedback } = useSoundHaptics();
 
   // Total slides = 3 rounds + 1 final score screen
@@ -32,6 +34,32 @@ export const UnlockedRevealScreen = ({ results, onComplete }: UnlockedRevealScre
       playSound('dial-move');
       triggerHapticFeedback(10);
       setCurrentSlide((prev) => prev - 1);
+    }
+  };
+
+  const handleCopyResults = async () => {
+    try {
+      // Convert GuessResult[] to RoundSummary[] format
+      const roundSummaries = results.map((r) => ({
+        roundIndex: r.roundIndex,
+        dialValue: r.dialValue,
+        target: r.target,
+        redditAverage: r.redditAverage,
+        score: r.score,
+      }));
+
+      const shareText = buildEnhancedWavelengthString(roundSummaries);
+
+      await navigator.clipboard.writeText(shareText);
+
+      playSound('success');
+      triggerHapticFeedback([20, 30, 20]);
+      setCopySuccess(true);
+
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      playSound('error');
     }
   };
 
@@ -272,19 +300,37 @@ export const UnlockedRevealScreen = ({ results, onComplete }: UnlockedRevealScre
           </span>
         </button>
 
-        {currentSlide > 0 && (
-          <button
-            onClick={handlePrevious}
-            className="chunky-button-secondary w-full py-2 sm:py-2 rounded-xl sm:rounded-2xl flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined text-lg sm:text-xl text-slate-700">
-              arrow_back_ios
-            </span>
-            <span className="text-sm sm:text-base font-bold uppercase tracking-tight text-slate-700">
-              Previous
-            </span>
-          </button>
-        )}
+        <div className="flex gap-2">
+          {currentSlide > 0 && (
+            <button
+              onClick={handlePrevious}
+              className="chunky-button-secondary flex-1 py-2 sm:py-2 rounded-xl sm:rounded-2xl flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-lg sm:text-xl text-slate-700">
+                arrow_back_ios
+              </span>
+              <span className="text-sm sm:text-base font-bold uppercase tracking-tight text-slate-700">
+                Previous
+              </span>
+            </button>
+          )}
+
+          {isOnFinalSlide && (
+            <button
+              onClick={handleCopyResults}
+              className={`chunky-button-secondary ${currentSlide > 0 ? 'flex-1' : 'w-full'} py-2 sm:py-2 rounded-xl sm:rounded-2xl flex items-center justify-center gap-2 transition-all ${
+                copySuccess ? 'bg-emerald-500 border-emerald-600' : ''
+              }`}
+            >
+              <span className="material-symbols-outlined text-lg sm:text-xl text-slate-700">
+                {copySuccess ? 'check_circle' : 'content_copy'}
+              </span>
+              <span className="text-sm sm:text-base font-bold uppercase tracking-tight text-slate-700">
+                {copySuccess ? 'Copied!' : 'Copy Results'}
+              </span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Bottom Glow */}

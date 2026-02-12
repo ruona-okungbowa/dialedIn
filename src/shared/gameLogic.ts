@@ -157,19 +157,22 @@ const buildHistogram = (buckets: number[]): string => {
 };
 
 /**
- * Enhanced version of buildWavelengthString that includes community consensus visualization.
+ * Enhanced version of buildWavelengthString with visual dial positions.
  *
  * Example output:
- *   Dialed In - Jan 24, 2026
- *   [🟢🟢🟡🔴] 92% Score
- *   Round 1: My Guess: 85 | Community: ▂▃▆█▄▂
- *   Round 2: My Guess: 70 | Community: █▆▃▂
- *   Round 3: My Guess: 30 | Community: ▂▃█▆
+ *   🎛️ Dialed In — Feb 12
+ *   🟢 ·····🎯·····  95
+ *   🟡 ···🔵·👥·⭐··  72
+ *   🔴 ·🔵····👥··⭐  41
+ *   📊 208/300 pts (69%)
+ *   🧠 84% Hive Mind Sync
+ *   👥 47 players today
+ *   r/DialedInGame
  *
  * @param rounds - Array of round summaries with player guesses and scores
- * @param bucketsByRound - Optional array of bucket data for each round (for community visualization)
+ * @param bucketsByRound - Optional array of bucket data for each round (for player count)
  * @param date - Optional date string for the game
- * @returns Multi-line shareable string with community visualization
+ * @returns Multi-line shareable string with visual dial positions
  */
 export const buildEnhancedWavelengthString = (
   rounds: RoundSummary[],
@@ -177,54 +180,57 @@ export const buildEnhancedWavelengthString = (
   date?: string
 ): string => {
   if (!rounds.length) {
-    return 'I played Dialed In today!';
+    return '🎛️ Dialed In\n\nI played today!';
   }
 
-  const emojis = rounds
-    .map((round) => {
-      if (round.score >= 90) return '🟢';
-      if (round.score >= 60) return '🟡';
-      return '🔴';
-    })
-    .join('');
-
-  const maxPossibleTotal = rounds.length * MAX_ROUND_SCORE;
-  const actualTotal = rounds.reduce((sum, round) => sum + round.score, 0);
-
-  const pct =
-    maxPossibleTotal > 0 ? Math.round(clamp((actualTotal / maxPossibleTotal) * 100, 0, 100)) : 0;
-
-  // Format date if provided
   const dateStr = date
-    ? new Date(date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : new Date().toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      });
+    ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
-  let result = `Dialed In - ${dateStr}\n`;
-  result += `[${emojis}] ${pct}% Score\n`;
+  // Build visual dial positions for each round
+  const roundVisuals = rounds.map((round) => {
+    const position = Math.round(round.dialValue / 10); // 0-10
+    const target = Math.round(round.target / 10);
+    const reddit = Math.round(round.redditAverage / 10);
 
-  // Add per-round breakdown with community visualization
-  if (bucketsByRound && bucketsByRound.length === rounds.length) {
-    rounds.forEach((round, index) => {
-      const buckets = bucketsByRound[index];
-      if (buckets) {
-        const histogram = buildHistogram(buckets);
-        result += `Round ${round.roundIndex + 1}: My Guess: ${Math.round(round.dialValue)} | Community: ${histogram}\n`;
+    // Create a 10-segment visual bar
+    let bar = '';
+    for (let j = 0; j <= 10; j++) {
+      if (j === position && j === target) {
+        bar += '🎯'; // Perfect hit
+      } else if (j === position) {
+        bar += '🔵'; // Your guess
+      } else if (j === target) {
+        bar += '⭐'; // Target (creates curiosity)
+      } else if (j === reddit) {
+        bar += '👥'; // Reddit average
+      } else {
+        bar += '·';
       }
-    });
-  } else {
-    // Fallback without community data
-    rounds.forEach((round) => {
-      result += `Round ${round.roundIndex + 1}: My Guess: ${Math.round(round.dialValue)} | Score: ${round.score}\n`;
-    });
-  }
+    }
 
-  return result.trim();
+    const scoreEmoji = round.score >= 90 ? '🟢' : round.score >= 60 ? '🟡' : '🔴';
+    return `${scoreEmoji} ${bar}  ${round.score}`;
+  });
+
+  const totalScore = rounds.reduce((s, r) => s + r.score, 0);
+  const maxScore = rounds.length * 100;
+  const pct = Math.round((totalScore / maxScore) * 100);
+
+  // Calculate Hive Mind Sync
+  const syncDist = rounds.reduce((s, r) => s + Math.abs(r.dialValue - r.redditAverage), 0);
+  const syncPct = Math.round(((300 - syncDist) / 300) * 100);
+
+  const playerCount = bucketsByRound?.[0]?.reduce((s, c) => s + c, 0) || 0;
+
+  let result = `🎛️ Dialed In — ${dateStr}\n\n`;
+  result += `${roundVisuals.join('\n')}\n\n`;
+  result += `📊 ${totalScore}/${maxScore} pts (${pct}%)\n`;
+  result += `🧠 ${syncPct}% Hive Mind Sync\n`;
+  if (playerCount > 0) {
+    result += `👥 ${playerCount} players today\n`;
+  }
+  result += `\nr/DialedInGame`;
+
+  return result;
 };

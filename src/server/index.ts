@@ -116,7 +116,7 @@ const getResultsLockStatus = (gameCreatedAt: string): { isLocked: boolean; unloc
 
   // Set unlock time to 8pm (20:00) on the same calendar day the game was created
   const unlockDate = new Date(createdDate);
-  unlockDate.setHours(20, 0, 0, 0); // 8pm on the same day
+  unlockDate.setHours(19, 0, 0, 0); // 8pm on the same day
 
   const now = Date.now();
 
