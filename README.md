@@ -101,68 +101,6 @@ Results are locked until 8pm on the day you play, creating a unique anticipation
 - **Grace Period** - Incomplete games from previous days can be finished before starting today's
 - **Date Validation** - Smart detection of day boundaries prevents state conflicts
 
-## 🚀 Getting Started (For Developers)
-
-### Prerequisites
-
-- Node.js 22.2.0 or higher
-- Reddit account for Devvit development
-
-### Quick Start
-
-```bash
-# Install dependencies
-npm install
-
-# Login to Devvit
-npm run login
-
-# Start development server
-npm run dev
-```
-
-### Available Commands
-
-```bash
-npm run dev      # Development mode (hot reload)
-npm run build    # Build for production
-npm run deploy   # Deploy to Reddit
-npm run launch   # Publish for review
-npm run check    # Run linting and type checks
-```
-
-### Project Structure
-
-```
-src/
-├── client/          # React frontend
-│   ├── game/       # Game screens (gameplay, results, reveal)
-│   ├── splash/     # Main menu
-│   ├── hof/        # Hall of Fame leaderboard
-│   ├── lab/        # Spectrum Lab (submit ideas)
-│   ├── vote/       # Voting gallery
-│   ├── onboarding/ # Tutorial
-│   └── hooks/      # React hooks (state, sound, theme)
-├── server/          # Express backend
-│   ├── core/       # Business logic
-│   └── index.ts    # API endpoints
-└── shared/          # Shared types and logic
-    ├── types.ts    # Type definitions
-    ├── gameLogic.ts # Scoring functions
-    └── data/       # Default spectrums
-```
-
-### Key API Endpoints
-
-- `GET /api/daily-game` - Fetch today's game
-- `POST /api/guess` - Submit a guess
-- `POST /api/save-game-state` - Save progress
-- `GET /api/leaderboard` - Hall of Fame data
-- `GET /api/user-stats` - Personal stats
-- `GET /api/spectrum-lab` - View submissions
-- `POST /api/spectrum-lab` - Submit new spectrum
-- `POST /api/spectrum-lab/vote` - Vote on submission
-
 ## 🎨 Features in Detail
 
 ### Interactive Tutorial
@@ -197,14 +135,6 @@ Browse and vote on community submissions with:
 - Badges for trending and near-approval submissions
 - Top-voted spectrums auto-selected at 8pm
 
-### State Persistence
-
-- **localStorage** - Auto-saves every second for instant recovery
-- **Redis** - Server-side persistence for cross-device play
-- **BroadcastChannel** - Real-time sync across browser tabs
-- **Grace Period** - Finish yesterday's incomplete games
-- **Date Validation** - Smart handling of day boundaries
-
 ### Mobile Experience
 
 - Touch-optimized slider controls with large hit areas
@@ -213,8 +143,20 @@ Browse and vote on community submissions with:
 - Responsive design adapts to all screen sizes
 - Glassmorphism UI with frosted glass effects
 
+## 🏅 User Flair System
+
+Players earn special flair badges for achievements:
+
+- **🔥 7-Day Streak** - Maintain a 7-day streak (210+ points per day)
+- **🏆 Daily Winner** - Top scorer for the day
+- **✨ Spectrum Creator** - Your submitted spectrum was selected for the daily game
+
+Flairs are automatically assigned when you achieve these milestones and appear next to your username in the subreddit.
+
 ## 📝 Recent Updates
 
+- ✅ Dynamic post titles with daily spectrum (e.g., "Daily Game (Feb 12): Harmless ↔ Cancel-worthy")
+- ✅ Automated flair assignment for achievements (7-day streak, daily winner, spectrum creator)
 - ✅ Removed moderator approval workflow - community voting now drives spectrum selection
 - ✅ Results unlock at 8pm on game creation day (hybrid consensus timing)
 - ✅ Enhanced mobile-responsive voting gallery with sort options
@@ -223,10 +165,7 @@ Browse and vote on community submissions with:
 - ✅ Improved haptic feedback (15ms) and sound effects
 - ✅ Daily spectrum auto-selection from top-voted submissions at 8pm
 - ✅ BroadcastChannel API for real-time cross-tab synchronization
-
-## 📄 License
-
-BSD-3-Clause
+- ✅ Automated daily post creation at midnight with scheduler
 
 ---
 
