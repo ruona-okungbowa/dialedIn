@@ -6,6 +6,7 @@ type LockedResultsScreenProps = {
   totalScore: number;
   completedRounds: number;
   onUnlock?: () => void; // Callback when unlock time is reached
+  onViewLeaderboard?: () => void; // Callback to view leaderboard
 };
 
 export const LockedResultsScreen = ({
@@ -13,6 +14,7 @@ export const LockedResultsScreen = ({
   totalScore,
   completedRounds,
   onUnlock,
+  onViewLeaderboard,
 }: LockedResultsScreenProps) => {
   const [timeRemaining, setTimeRemaining] = useState('');
 
@@ -142,9 +144,13 @@ export const LockedResultsScreen = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="w-full max-w-md mt-4 sm:mt-4 flex flex-col gap-2">
+        <div className="w-full max-w-md mt-4 sm:mt-4 flex flex-col gap-2 relative z-30">
           <button
-            onClick={(e) => requestExpandedMode(e.nativeEvent, 'hof')}
+            onClick={() => {
+              if (onViewLeaderboard) {
+                onViewLeaderboard();
+              }
+            }}
             className="chunky-button-yellow w-full py-3 sm:py-4 rounded-2xl sm:rounded-3xl flex items-center justify-center gap-2 sm:gap-3 group"
           >
             <span className="text-base sm:text-xl font-black uppercase tracking-tight text-amber-950">
@@ -155,18 +161,6 @@ export const LockedResultsScreen = ({
               style={{ fontVariationSettings: "'FILL' 1" }}
             >
               leaderboard
-            </span>
-          </button>
-
-          <button
-            onClick={() => globalThis.location?.reload()}
-            className="chunky-button-secondary w-full py-2.5 sm:py-3 rounded-xl sm:rounded-2xl flex items-center justify-center gap-2"
-          >
-            <span className="text-sm sm:text-base font-bold uppercase tracking-tight text-slate-700">
-              Refresh Status
-            </span>
-            <span className="material-symbols-outlined text-lg sm:text-xl text-slate-700">
-              refresh
             </span>
           </button>
         </div>

@@ -53,9 +53,40 @@ const AppContent = () => {
     }
   };
 
-  const handleUnlock = () => {
-    // When timer reaches zero, transition to unlocked reveal
-    setView('unlocked');
+  const handleUnlock = async () => {
+    // When timer reaches zero, refetch game data to get unlocked results
+    try {
+      const res = await fetch('/api/daily-game');
+      if (res.ok) {
+        const data = await res.json();
+
+        // Check if results are now unlocked
+        if (!data.isLocked && data.priorResults && data.priorResults.length > 0) {
+          // Update results with the unlocked data
+          setResults(data.priorResults);
+
+          // Calculate actual total score
+          const total = data.priorResults.reduce(
+            (sum: number, r: GuessResult) => sum + (r.score || 0),
+            0
+          );
+          setTotalScore(total);
+
+          // Transition to unlocked reveal
+          setView('unlocked');
+        } else {
+          // Still locked, just transition (shouldn't happen but handle gracefully)
+          setView('unlocked');
+        }
+      } else {
+        // If fetch fails, just transition to unlocked view with existing data
+        setView('unlocked');
+      }
+    } catch (error) {
+      console.error('Failed to fetch unlocked results:', error);
+      // Fallback: just transition to unlocked view
+      setView('unlocked');
+    }
   };
 
   const handlePlayAgain = () => {
@@ -74,6 +105,7 @@ const AppContent = () => {
             totalScore={totalScore}
             completedRounds={results?.length || 0}
             onUnlock={handleUnlock}
+            onViewLeaderboard={() => setView('hof')}
           />
         );
       case 'unlocked':
