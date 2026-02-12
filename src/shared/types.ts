@@ -120,6 +120,20 @@ export type GuessResult = {
    * Convenience flag for "perfect" rounds.
    */
   isPerfect?: boolean;
+  /**
+   * Whether this result is locked (hidden until reveal time).
+   */
+  isLocked?: boolean;
+};
+
+/**
+ * Locked result state - shown when results are not yet revealed.
+ */
+export type LockedResult = {
+  roundIndex: number;
+  dialValue: number;
+  isLocked: true;
+  unlockTime: string; // ISO timestamp when results will be revealed
 };
 
 /**
@@ -149,13 +163,13 @@ export type UserStats = {
    */
   totalScore: number;
   /**
-   * Weekly score (resets every Monday at midnight).
+   * Daily score (resets every day at midnight).
    */
-  weeklyScore: number;
+  dailyScore: number;
   /**
-   * ISO date string of the current week's Monday (YYYY-MM-DD).
+   * ISO date string of the current day (YYYY-MM-DD).
    */
-  weekStartDate: string;
+  dayDate: string;
   /**
    * Number of completed daily games.
    */

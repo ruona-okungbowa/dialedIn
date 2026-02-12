@@ -101,6 +101,31 @@ const dialValueToBucketIndex = (dialValue: number): number => {
 };
 
 /**
+ * Check if results are currently locked (hidden until 24 hours after game creation).
+ * Returns unlock time if locked, null if unlocked.
+ */
+const getResultsLockStatus = (gameCreatedAt: string): { isLocked: boolean; unlockTime: string } => {
+  const createdTime = new Date(gameCreatedAt).getTime();
+  const unlockTime = new Date(createdTime + 30 * 1000); // 24 hours later
+  const now = Date.now();
+
+  return {
+    isLocked: now < unlockTime.getTime(),
+    unlockTime: unlockTime.toISOString(),
+  };
+};
+
+/**
+ * Calculate the final target for scoring as the median of all community guesses.
+ * This is used when results are unlocked to score against community consensus.
+ */
+const calculateFinalTarget = (buckets: number[]): number => {
+  const allGuesses = reconstructGuessesFromBuckets(buckets);
+  if (allGuesses.length === 0) return 50; // Default if no guesses
+  return Math.round(calculateMedian(allGuesses));
+};
+
+/**
  * Calculate the median of an array of numbers.
  * Used for determining community consensus target.
  */
@@ -407,15 +432,11 @@ const isModerator = async (): Promise<boolean> => {
   }
 };
 
-// Helper function to get the Monday of the current week
-const getWeekStartDate = (): string => {
+// Helper function to get the current day date
+const getCurrentDayDate = (): string => {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday, go back 6 days; otherwise go to Monday
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + daysToMonday);
-  monday.setHours(0, 0, 0, 0);
-  return monday.toISOString().slice(0, 10); // YYYY-MM-DD
+  now.setHours(0, 0, 0, 0);
+  return now.toISOString().slice(0, 10); // YYYY-MM-DD
 };
 
 const updateUserStatsAfterGameCompletion = async (
@@ -425,20 +446,31 @@ const updateUserStatsAfterGameCompletion = async (
   if (!results.length) return;
 
   const allStats = await getAllUserStats();
-  const currentWeekStart = getWeekStartDate();
+  const currentDayDate = getCurrentDayDate();
 
-  const prev: UserStats =
-    allStats[userKey] ??
-    ({
-      userId: userKey,
-      streak: { current: 0, best: 0 },
-      totalScore: 0,
-      weeklyScore: 0,
-      weekStartDate: currentWeekStart,
-      gamesPlayed: 0,
-      averageDistanceToTarget: 0,
-      averageDistanceFromReddit: 0,
-    } as UserStats);
+  let prev: UserStats = allStats[userKey] ?? {
+    userId: userKey,
+    streak: { current: 0, best: 0 },
+    totalScore: 0,
+    dailyScore: 0,
+    dayDate: currentDayDate,
+    gamesPlayed: 0,
+    averageDistanceToTarget: 0,
+    averageDistanceFromReddit: 0,
+  };
+
+  // Migration: Convert old weeklyScore/weekStartDate to dailyScore/dayDate
+  if ('weeklyScore' in prev || 'weekStartDate' in prev) {
+    const oldData = prev as any;
+    prev = {
+      ...prev,
+      dailyScore: 0, // Reset to 0 since we're migrating from weekly to daily
+      dayDate: currentDayDate,
+    };
+    // Remove old fields
+    delete (prev as any).weeklyScore;
+    delete (prev as any).weekStartDate;
+  }
 
   // Try to resolve a display username for this user (best-effort). If reddit
   // API call fails, fall back to existing stored username or userId.
@@ -487,17 +519,16 @@ const updateUserStatsAfterGameCompletion = async (
   const hitThreshold = totalScoreForDay >= 70 * results.length;
   const streak = updateStreak(prev.streak, true, hitThreshold);
 
-  // Weekly score handling: if the stored weekStartDate matches the current
-  // week, accumulate; otherwise reset to this day's total.
-  const prevWeekStart = prev.weekStartDate ?? currentWeekStart;
-  let weeklyScore = prev.weeklyScore ?? 0;
-  let weekStartDate = prevWeekStart;
+  // Daily score handling: if the stored dayDate matches the current
+  // day, use the new score; otherwise reset to this day's total.
+  const prevDayDate = prev.dayDate ?? currentDayDate;
+  let dailyScore = totalScoreForDay;
+  let dayDate = currentDayDate;
 
-  if (prevWeekStart === currentWeekStart) {
-    weeklyScore = (weeklyScore ?? 0) + totalScoreForDay;
-  } else {
-    weeklyScore = totalScoreForDay;
-    weekStartDate = currentWeekStart;
+  // If it's a different day, reset the daily score
+  if (prevDayDate !== currentDayDate) {
+    dailyScore = totalScoreForDay;
+    dayDate = currentDayDate;
   }
 
   allStats[userKey] = {
@@ -505,8 +536,8 @@ const updateUserStatsAfterGameCompletion = async (
     ...(resolvedUsername !== undefined && { username: resolvedUsername }),
     streak,
     totalScore,
-    weeklyScore,
-    weekStartDate,
+    dailyScore,
+    dayDate,
     gamesPlayed,
     averageDistanceToTarget,
     averageDistanceFromReddit,
@@ -565,13 +596,73 @@ router.get<{}, DailyGameResponse | { status: string; message: string }>(
         getUserGameStateForToday(subredditKey, userKey),
       ]);
 
+      // Check if results are locked
+      const lockStatus = getResultsLockStatus(game.createdAt);
+
       const response: DailyGameResponse = {
         type: 'daily-game',
         game,
+        isLocked: lockStatus.isLocked,
+        unlockTime: lockStatus.unlockTime,
       };
 
       if (priorResults.length) {
-        response.priorResults = priorResults;
+        // If locked, hide the actual values in prior results
+        if (lockStatus.isLocked) {
+          response.priorResults = priorResults.map((r) => ({
+            ...r,
+            target: 0,
+            redditAverage: 0,
+            distanceFromTarget: 0,
+            distanceFromRedditAverage: 0,
+            score: 0,
+            totalScoreAfterRound: 0,
+            isLocked: true,
+          }));
+        } else {
+          // Results are unlocked - recalculate scores using final community average
+          const recalculatedResults = await Promise.all(
+            priorResults.map(async (r) => {
+              // Get buckets for this round to calculate final target
+              const buckets = await getBucketsForToday(subredditKey, r.roundIndex);
+              const finalTarget = calculateFinalTarget(buckets);
+              const redditAverage = computeRedditAverage(buckets);
+              const round = game.rounds[r.roundIndex];
+
+              if (!round) return r;
+
+              const score = dialValueToScore(r.dialValue, finalTarget, round.maxScore);
+              const distanceFromTarget = Math.abs(r.dialValue - finalTarget);
+              const distanceFromRedditAverage = Math.abs(r.dialValue - redditAverage);
+
+              return {
+                ...r,
+                target: finalTarget,
+                redditAverage,
+                distanceFromTarget,
+                distanceFromRedditAverage,
+                score,
+                isPerfect: score === round.maxScore,
+                isLocked: false,
+              };
+            })
+          );
+
+          // Recalculate total scores
+          let runningTotal = 0;
+          const resultsWithTotals = recalculatedResults.map((r) => {
+            runningTotal += r.score;
+            return {
+              ...r,
+              totalScoreAfterRound: runningTotal,
+            };
+          });
+
+          // Save recalculated results
+          await saveUserResultsForToday(subredditKey, userKey, resultsWithTotals);
+
+          response.priorResults = resultsWithTotals;
+        }
       }
 
       if (savedGameState) {
@@ -640,25 +731,53 @@ router.post<{}, GuessResponse | { status: string; message: string }, GuessReques
       }
 
       const clampedDial = clamp(dialValue, 0, 100);
-      const seedTarget = clamp(round.target, 0, 100);
 
-      // HYBRID CONSENSUS MODEL: Determine active target
-      // Use seed for first 2 hours OR until 10+ responses
-      // Then switch to community median
-      const { target, targetType, communitySize } = getActiveTarget(
-        seedTarget,
-        existingBuckets,
-        game.createdAt
-      );
+      // Check if results are locked
+      const lockStatus = getResultsLockStatus(game.createdAt);
 
+      // Update buckets with this guess
       const bucketIndex = dialValueToBucketIndex(clampedDial);
       const updatedBuckets = [...existingBuckets];
       updatedBuckets[bucketIndex] = (updatedBuckets[bucketIndex] ?? 0) + 1;
 
-      const redditAverage = computeRedditAverage(updatedBuckets);
+      // Save buckets immediately
+      await saveBucketsForToday(subredditKey, roundIndex, updatedBuckets);
 
-      const score = dialValueToScore(clampedDial, target, round.maxScore);
-      const distanceFromTarget = Math.abs(clampedDial - target);
+      // If results are locked, save guess without scoring
+      if (lockStatus.isLocked) {
+        const lockedResult: GuessResult = {
+          roundIndex,
+          dialValue: clampedDial,
+          target: 0, // Will be calculated when unlocked
+          redditAverage: 0, // Will be calculated when unlocked
+          distanceFromTarget: 0,
+          distanceFromRedditAverage: 0,
+          score: 0,
+          totalScoreAfterRound: 0,
+          isLocked: true,
+        };
+
+        const nextResults = [
+          ...existingResults.filter((r) => r.roundIndex !== roundIndex),
+          lockedResult,
+        ].sort((a, b) => a.roundIndex - b.roundIndex);
+
+        await saveUserResultsForToday(subredditKey, userKey, nextResults);
+
+        res.json({
+          type: 'guess',
+          result: lockedResult,
+          isLocked: true,
+          unlockTime: lockStatus.unlockTime,
+        });
+        return;
+      }
+
+      // Results are unlocked - calculate final target and score
+      const finalTarget = calculateFinalTarget(updatedBuckets);
+      const redditAverage = computeRedditAverage(updatedBuckets);
+      const score = dialValueToScore(clampedDial, finalTarget, round.maxScore);
+      const distanceFromTarget = Math.abs(clampedDial - finalTarget);
       const distanceFromRedditAverage = Math.abs(clampedDial - redditAverage);
 
       const totalBefore = existingResults.reduce(
@@ -669,7 +788,7 @@ router.post<{}, GuessResponse | { status: string; message: string }, GuessReques
       const result: GuessResult = {
         roundIndex,
         dialValue: clampedDial,
-        target,
+        target: finalTarget,
         redditAverage,
         distanceFromTarget,
         distanceFromRedditAverage,
@@ -996,16 +1115,54 @@ router.get<{}, LeaderboardResponse | { status: string; message: string }>(
   '/api/leaderboard',
   async (_req, res): Promise<void> => {
     try {
-      const currentWeekStart = getWeekStartDate();
+      const currentDayDate = getCurrentDayDate();
+      const subredditKey = getSubredditKey();
       const allStats = await getAllUserStats();
-      const entries = Object.values(allStats);
+      let entries = Object.values(allStats);
+      let needsSave = false;
+
+      // Migration: For users with old weeklyScore, try to get their today's score from results
+      const migratedStats = await Promise.all(
+        entries.map(async (stats) => {
+          if ((!stats.dailyScore || stats.dailyScore === 0) && 'weeklyScore' in (stats as any)) {
+            try {
+              const todayResults = await getUserResultsForToday(subredditKey, stats.userId);
+              if (todayResults.length > 0) {
+                const todayScore = todayResults.reduce(
+                  (sum, r) => sum + (typeof r.score === 'number' ? r.score : 0),
+                  0
+                );
+                const migratedStats = {
+                  ...stats,
+                  dailyScore: todayScore,
+                  dayDate: currentDayDate,
+                };
+                delete (migratedStats as any).weeklyScore;
+                delete (migratedStats as any).weekStartDate;
+                allStats[stats.userId] = migratedStats;
+                needsSave = true;
+                return migratedStats;
+              }
+            } catch (error) {
+              console.warn(`Failed to migrate stats for user ${stats.userId}:`, error);
+            }
+          }
+          return stats;
+        })
+      );
+
+      if (needsSave) {
+        await saveAllUserStats(allStats);
+      }
+
+      entries = migratedStats;
 
       const toLeaderboardEntry = (stats: UserStats): LeaderboardEntry => {
         const entry: LeaderboardEntry = {
           userId: stats.userId,
           totalScore: stats.totalScore,
-          // Only count weeklyScore if it belongs to the current week; otherwise treat as 0
-          weeklyScore: stats.weekStartDate === currentWeekStart ? (stats.weeklyScore ?? 0) : 0,
+          // Only count dailyScore if it belongs to the current day; otherwise treat as 0
+          dailyScore: stats.dayDate === currentDayDate ? (stats.dailyScore ?? 0) : 0,
           streakCurrent: stats.streak.current,
           averageDistanceToTarget: stats.averageDistanceToTarget,
           averageDistanceFromReddit: stats.averageDistanceFromReddit,
@@ -1021,10 +1178,10 @@ router.get<{}, LeaderboardResponse | { status: string; message: string }>(
         .slice(0, 10)
         .map(toLeaderboardEntry);
 
-      const byWeeklyScore = [...entries]
+      const byDailyScore = [...entries]
         .map((s) => ({
           stats: s,
-          score: s.weekStartDate === currentWeekStart ? (s.weeklyScore ?? 0) : 0,
+          score: s.dayDate === currentDayDate ? (s.dailyScore ?? 0) : 0,
         }))
         .sort((a, b) => b.score - a.score)
         .slice(0, 10)
@@ -1050,7 +1207,7 @@ router.get<{}, LeaderboardResponse | { status: string; message: string }>(
       // Collect all unique user IDs that need username resolution
       const allLeaderboardEntries = [
         ...byTotalScore,
-        ...byWeeklyScore,
+        ...byDailyScore,
         ...byStreak,
         ...mostAligned,
         ...mostControversial,
@@ -1080,7 +1237,10 @@ router.get<{}, LeaderboardResponse | { status: string; message: string }>(
       // Update entries with fetched usernames
       const updateEntryUsername = (entry: LeaderboardEntry): LeaderboardEntry => {
         if (!entry.username && usernameMap.has(entry.userId)) {
-          return { ...entry, username: usernameMap.get(entry.userId) };
+          const username = usernameMap.get(entry.userId);
+          if (username) {
+            return { ...entry, username };
+          }
         }
         return entry;
       };
@@ -1088,7 +1248,7 @@ router.get<{}, LeaderboardResponse | { status: string; message: string }>(
       const response: LeaderboardResponse = {
         type: 'leaderboard',
         topTotalScore: byTotalScore.map(updateEntryUsername),
-        topWeeklyScore: byWeeklyScore.map(updateEntryUsername),
+        topDailyScore: byDailyScore.map(updateEntryUsername),
         topStreaks: byStreak.map(updateEntryUsername),
         mostAligned: mostAligned.map(updateEntryUsername),
         mostControversial: mostControversial.map(updateEntryUsername),
@@ -1110,8 +1270,38 @@ router.get<{}, UserStatsResponse | { status: string; message: string }>(
   async (_req, res): Promise<void> => {
     try {
       const userKey = await getUserKey();
+      const subredditKey = getSubredditKey();
+      const todayDate = getCurrentDayDate();
       const allStats = await getAllUserStats();
       let stats = allStats[userKey] ?? null;
+
+      // Migration: If user has old weeklyScore but no dailyScore, check if they played today
+      if (
+        stats &&
+        (!stats.dailyScore || stats.dailyScore === 0) &&
+        'weeklyScore' in (stats as any)
+      ) {
+        // Check if they have results for today
+        const todayResults = await getUserResultsForToday(subredditKey, userKey);
+        if (todayResults.length > 0) {
+          // Calculate today's score from their results
+          const todayScore = todayResults.reduce(
+            (sum, r) => sum + (typeof r.score === 'number' ? r.score : 0),
+            0
+          );
+          stats = {
+            ...stats,
+            dailyScore: todayScore,
+            dayDate: todayDate,
+          };
+          // Remove old fields
+          delete (stats as any).weeklyScore;
+          delete (stats as any).weekStartDate;
+          // Save the migrated stats
+          allStats[userKey] = stats;
+          await saveAllUserStats(allStats);
+        }
+      }
 
       // Try to fetch the current user's username if not already stored
       if (stats && !stats.username) {
@@ -1136,8 +1326,8 @@ router.get<{}, UserStatsResponse | { status: string; message: string }>(
               username,
               streak: { current: 0, best: 0 },
               totalScore: 0,
-              weeklyScore: 0,
-              weekStartDate: getWeekStartDate(),
+              dailyScore: 0,
+              dayDate: todayDate,
               gamesPlayed: 0,
               averageDistanceToTarget: 0,
               averageDistanceFromReddit: 0,
@@ -1164,11 +1354,10 @@ router.get<{}, UserStatsResponse | { status: string; message: string }>(
       const byControversy = [...entries]
         .filter((e) => e.gamesPlayed > 0)
         .sort((a, b) => b.averageDistanceFromReddit - a.averageDistanceFromReddit);
-      const currentWeekStart = getWeekStartDate();
-      const byWeeklyScore = [...entries]
+      const byDailyScore = [...entries]
         .map((s) => ({
           stats: s,
-          score: s.weekStartDate === currentWeekStart ? (s.weeklyScore ?? 0) : 0,
+          score: s.dayDate === todayDate ? (s.dailyScore ?? 0) : 0,
         }))
         .sort((a, b) => b.score - a.score)
         .map((p) => p.stats);
@@ -1179,7 +1368,7 @@ router.get<{}, UserStatsResponse | { status: string; message: string }>(
         stats,
         ranks: {
           totalScoreRank: rankOf(byTotalScore, userKey),
-          weeklyScoreRank: rankOf(byWeeklyScore, userKey),
+          dailyScoreRank: rankOf(byDailyScore, userKey),
           streakRank: rankOf(byStreak, userKey),
           alignmentRank: rankOf(byAlignment, userKey),
           controversialRank: rankOf(byControversy, userKey),

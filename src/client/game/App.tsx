@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react';
 
 import type { GuessResult } from '../../shared/types';
-import { ThemeProvider, useTheme } from '../hooks/useTheme';
 import { GameScreen } from './GameScreen';
 import { ResultsScreen } from './ResultsScreen';
+import { LockedResultsScreen } from './LockedResultsScreen';
+import { UnlockedRevealScreen } from './UnlockedRevealScreen';
 import { SpectrumLabScreen } from '../lab/SpectrumLabScreen';
 import { HallOfFameScreen } from '../hof/HallOfFameScreen';
 import { OnboardingScreen } from '../onboarding/OnboardingScreen';
 
-type View = 'onboarding' | 'game' | 'results' | 'lab' | 'hof';
+type View = 'onboarding' | 'game' | 'results' | 'locked' | 'unlocked' | 'lab' | 'hof';
 
 const ONBOARDING_KEY = 'dialedin_onboarding_completed';
 
@@ -16,26 +17,45 @@ const AppContent = () => {
   const [view, setView] = useState<View>('game');
   const [results, setResults] = useState<GuessResult[] | null>(null);
   const [gameKey, setGameKey] = useState(0); // Force remount when starting new game
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [unlockTime, setUnlockTime] = useState<string | null>(null);
+  const [totalScore, setTotalScore] = useState(0);
 
   // Check if user has completed onboarding
   useEffect(() => {
     const hasCompletedOnboarding = localStorage.getItem(ONBOARDING_KEY);
     if (!hasCompletedOnboarding) {
-      setShowOnboarding(true);
       setView('onboarding');
     }
   }, []);
 
   const handleOnboardingComplete = () => {
     localStorage.setItem(ONBOARDING_KEY, 'true');
-    setShowOnboarding(false);
     setView('game');
   };
 
-  const handleGameComplete = (gameResults: GuessResult[]) => {
+  const handleGameComplete = (
+    gameResults: GuessResult[],
+    isLocked?: boolean,
+    unlockTimeIso?: string
+  ) => {
     setResults(gameResults);
-    setView('results');
+
+    // Calculate total score (will be 0 if locked)
+    const total = gameResults.reduce((sum, r) => sum + (r.score || 0), 0);
+    setTotalScore(total);
+
+    if (isLocked && unlockTimeIso) {
+      setUnlockTime(unlockTimeIso);
+      setView('locked');
+    } else {
+      // Results are unlocked, show swipeable reveal
+      setView('unlocked');
+    }
+  };
+
+  const handleUnlock = () => {
+    // When timer reaches zero, transition to unlocked reveal
+    setView('unlocked');
   };
 
   const handlePlayAgain = () => {
@@ -47,6 +67,19 @@ const AppContent = () => {
     switch (view) {
       case 'onboarding':
         return <OnboardingScreen onComplete={handleOnboardingComplete} />;
+      case 'locked':
+        return (
+          <LockedResultsScreen
+            unlockTime={unlockTime || new Date().toISOString()}
+            totalScore={totalScore}
+            completedRounds={results?.length || 0}
+            onUnlock={handleUnlock}
+          />
+        );
+      case 'unlocked':
+        return (
+          <UnlockedRevealScreen results={results || []} onComplete={() => setView('results')} />
+        );
       case 'results':
         return <ResultsScreen results={results} onPlayAgain={handlePlayAgain} />;
       case 'lab':

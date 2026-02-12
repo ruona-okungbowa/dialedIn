@@ -3,31 +3,28 @@ import { useEffect, useState } from 'react';
 import type { LeaderboardResponse, UserStatsResponse } from '../../shared/types/api';
 import { exitExpandedMode } from '@devvit/web/client';
 
-type PeriodTab = 'weekly' | 'alltime';
+type PeriodTab = 'daily' | 'alltime';
 
 export const HallOfFameScreen = () => {
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [userStats, setUserStats] = useState<UserStatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [periodTab, setPeriodTab] = useState<PeriodTab>('weekly');
+  const [periodTab, setPeriodTab] = useState<PeriodTab>('daily');
   const [timeUntilReset, setTimeUntilReset] = useState<string>('');
 
-  // Calculate time until next Monday (end of week)
+  // Calculate time until next day (midnight)
   useEffect(() => {
     const calculateTimeUntilReset = () => {
       const now = new Date();
-      const dayOfWeek = now.getDay();
 
-      const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-
-      // Create date for next Monday at midnight
-      const nextMonday = new Date(now);
-      nextMonday.setDate(now.getDate() + daysUntilMonday);
-      nextMonday.setHours(0, 0, 0, 0);
+      // Create date for next midnight
+      const nextMidnight = new Date(now);
+      nextMidnight.setDate(now.getDate() + 1);
+      nextMidnight.setHours(0, 0, 0, 0);
 
       // Calculate difference
-      const diff = nextMonday.getTime() - now.getTime();
+      const diff = nextMidnight.getTime() - now.getTime();
 
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -100,14 +97,14 @@ export const HallOfFameScreen = () => {
   const currentUserDisplay = userStats?.stats?.username ?? userStats?.userId;
 
   const activeEntries =
-    periodTab === 'weekly' ? leaderboard?.topWeeklyScore || [] : leaderboard?.topTotalScore || [];
+    periodTab === 'daily' ? leaderboard?.topDailyScore || [] : leaderboard?.topTotalScore || [];
 
   const userRank =
-    periodTab === 'weekly'
-      ? userStats?.ranks?.weeklyScoreRank || 0
+    periodTab === 'daily'
+      ? userStats?.ranks?.dailyScoreRank || 0
       : userStats?.ranks?.totalScoreRank || 0;
   const userScore =
-    periodTab === 'weekly' ? userStats?.stats?.weeklyScore || 0 : userStats?.stats?.totalScore || 0;
+    periodTab === 'daily' ? userStats?.stats?.dailyScore || 0 : userStats?.stats?.totalScore || 0;
 
   const getRankBadgeClass = (rank: number) => {
     if (rank === 1) return 'bg-yellow-300 text-yellow-900 ring-2 ring-yellow-400/30';
@@ -142,11 +139,11 @@ export const HallOfFameScreen = () => {
           <button
             type="button"
             className={`px-6 md:px-8 py-2.5 rounded-xl font-bold text-base md:text-lg ${
-              periodTab === 'weekly' ? 'bg-white text-purple-900' : 'text-white/60 hover:text-white'
+              periodTab === 'daily' ? 'bg-white text-purple-900' : 'text-white/60 hover:text-white'
             }`}
-            onClick={() => setPeriodTab('weekly')}
+            onClick={() => setPeriodTab('daily')}
           >
-            Weekly
+            Daily
           </button>
           <button
             type="button"
@@ -176,11 +173,11 @@ export const HallOfFameScreen = () => {
             <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-white flex items-center gap-2">
               <span className="text-xl md:text-2xl">🏆</span>
               <span className="hidden sm:inline">
-                {periodTab === 'weekly' ? 'Weekly Top Scorers' : 'All-Time Champions'}
+                {periodTab === 'daily' ? 'Daily Top Scorers' : 'All-Time Champions'}
               </span>
-              <span className="sm:hidden">{periodTab === 'weekly' ? 'Weekly' : 'All-Time'}</span>
+              <span className="sm:hidden">{periodTab === 'daily' ? 'Daily' : 'All-Time'}</span>
             </h2>
-            {periodTab === 'weekly' && (
+            {periodTab === 'daily' && (
               <div className="text-[10px] md:text-xs lg:text-sm text-teal-300/80 font-semibold bg-teal-900/30 px-2 md:px-3 lg:px-4 py-1 md:py-1.5 rounded-full whitespace-nowrap">
                 <span className="hidden sm:inline">Resets in </span>
                 {timeUntilReset || '...'}
@@ -249,14 +246,14 @@ export const HallOfFameScreen = () => {
                         }`}
                         style={rank === 1 ? { textShadow: '0 0 15px rgba(251, 191, 36, 0.6)' } : {}}
                       >
-                        {(periodTab === 'weekly'
-                          ? entry.weeklyScore
+                        {(periodTab === 'daily'
+                          ? entry.dailyScore
                           : entry.totalScore
                         ).toLocaleString()}
                       </div>
                       {rank === 1 && (
                         <div className="text-[9px] md:text-[10px] text-white/40 uppercase font-black hidden sm:block">
-                          {periodTab === 'weekly' ? 'Weekly' : 'Total'}
+                          {periodTab === 'daily' ? 'Daily' : 'Total'}
                         </div>
                       )}
                     </div>
@@ -304,7 +301,7 @@ export const HallOfFameScreen = () => {
                   {userScore.toLocaleString()}
                 </div>
                 <div className="text-[9px] md:text-[10px] text-teal-400/60 uppercase font-black -mt-1 hidden sm:block">
-                  {periodTab === 'weekly' ? 'Weekly' : 'Total'}
+                  {periodTab === 'daily' ? 'Daily' : 'Total'}
                 </div>
               </div>
             </div>

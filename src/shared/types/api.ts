@@ -36,6 +36,14 @@ export type DailyGameResponse = {
     dialValue: number;
     gameStatus: 'playing' | 'round_end' | 'game_over';
   };
+  /**
+   * Whether results are currently locked (hidden until reveal time).
+   */
+  isLocked?: boolean;
+  /**
+   * ISO timestamp when results will be revealed.
+   */
+  unlockTime?: string;
 };
 
 export type GuessRequestBody = {
@@ -49,6 +57,14 @@ export type GuessRequestBody = {
 export type GuessResponse = {
   type: 'guess';
   result: GuessResult;
+  /**
+   * Whether results are currently locked (hidden until reveal time).
+   */
+  isLocked?: boolean;
+  /**
+   * ISO timestamp when results will be revealed.
+   */
+  unlockTime?: string;
 };
 
 /**
@@ -89,7 +105,7 @@ export type LeaderboardEntry = {
   userId: string;
   username?: string;
   totalScore: number;
-  weeklyScore: number;
+  dailyScore: number;
   streakCurrent: number;
   averageDistanceToTarget: number;
   averageDistanceFromReddit: number;
@@ -98,7 +114,7 @@ export type LeaderboardEntry = {
 export type LeaderboardResponse = {
   type: 'leaderboard';
   topTotalScore: LeaderboardEntry[];
-  topWeeklyScore: LeaderboardEntry[];
+  topDailyScore: LeaderboardEntry[];
   topStreaks: LeaderboardEntry[];
   mostAligned: LeaderboardEntry[];
   mostControversial: LeaderboardEntry[];
@@ -110,7 +126,7 @@ export type UserStatsResponse = {
   stats: UserStats | null;
   ranks: {
     totalScoreRank?: number | undefined;
-    weeklyScoreRank?: number | undefined;
+    dailyScoreRank?: number | undefined;
     streakRank?: number | undefined;
     alignmentRank?: number | undefined;
     controversialRank?: number | undefined;
