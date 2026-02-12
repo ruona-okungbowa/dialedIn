@@ -74,6 +74,7 @@ export type GuessResponse = {
 export type SpectrumLabListResponse = {
   type: 'spectrum-lab-list';
   submissions: SpectrumSubmission[];
+  userVotes?: Record<string, 'up' | 'down'>;
 };
 
 export type SpectrumLabSubmitRequest = {
@@ -157,7 +158,6 @@ export type ModeratorApproveRequest = {
   submissionId: string;
   clues: Array<{
     clue: string;
-    seedTarget: number;
   }>;
 };
 

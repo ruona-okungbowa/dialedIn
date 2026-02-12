@@ -42,6 +42,8 @@ const router = express.Router();
 const NUM_REDDIT_AVERAGE_BUCKETS = 20;
 const SPECTRUM_LAB_KEY = (subredditKey: string): string => `spectrumLab:${subredditKey}`;
 const USER_STATS_COLLECTION_KEY = 'userStatsCollection';
+const USER_VOTES_KEY = (subredditKey: string, userKey: string): string =>
+  `userVotes:${subredditKey}:${userKey}`;
 
 type UserStatsCollection = Record<string, UserStats>;
 
@@ -101,17 +103,24 @@ const dialValueToBucketIndex = (dialValue: number): number => {
 };
 
 /**
- * Check if results are currently locked (hidden until 24 hours after game creation).
+ * Check if results are currently locked (hidden until 8pm on the calendar day the game was created).
  * Returns unlock time if locked, null if unlocked.
+ *
+ * Important: Games are created once per calendar day. Results for that day's game
+ * unlock at 8pm (20:00) on the same calendar day, regardless of when the game was created.
  */
 const getResultsLockStatus = (gameCreatedAt: string): { isLocked: boolean; unlockTime: string } => {
-  const createdTime = new Date(gameCreatedAt).getTime();
-  const unlockTime = new Date(createdTime + 30 * 1000); // 24 hours later
+  const createdDate = new Date(gameCreatedAt);
+
+  // Set unlock time to 8pm (20:00) on the same calendar day the game was created
+  const unlockDate = new Date(createdDate);
+  unlockDate.setHours(20, 0, 0, 0); // 8pm on the same day
+
   const now = Date.now();
 
   return {
-    isLocked: now < unlockTime.getTime(),
-    unlockTime: unlockTime.toISOString(),
+    isLocked: now < unlockDate.getTime(),
+    unlockTime: unlockDate.toISOString(),
   };
 };
 
@@ -160,42 +169,6 @@ const reconstructGuessesFromBuckets = (buckets: number[]): number[] => {
   return guesses;
 };
 
-/**
- * Determine the active target for a round using the Hybrid Consensus Model.
- *
- * Phase 1 (Seed): Use seedTarget for first 2 hours OR until 10+ responses
- * Phase 2 (Community): Use median of all guesses after thresholds met
- */
-const getActiveTarget = (
-  seedTarget: number,
-  buckets: number[],
-  gameCreatedAt: string
-): { target: number; targetType: 'seed' | 'community'; communitySize: number } => {
-  const totalGuesses = buckets.reduce((sum, count) => sum + count, 0);
-  const hoursSinceCreation = (Date.now() - new Date(gameCreatedAt).getTime()) / (1000 * 60 * 60);
-
-  const hasEnoughData = totalGuesses >= 10;
-  const isPastSeedPhase = hoursSinceCreation >= 2;
-
-  // Use community consensus if we have enough data AND enough time has passed
-  if (hasEnoughData && isPastSeedPhase) {
-    const allGuesses = reconstructGuessesFromBuckets(buckets);
-    const communityMedian = calculateMedian(allGuesses);
-    return {
-      target: Math.round(communityMedian),
-      targetType: 'community',
-      communitySize: totalGuesses,
-    };
-  }
-
-  // Otherwise use seed target
-  return {
-    target: seedTarget,
-    targetType: 'seed',
-    communitySize: totalGuesses,
-  };
-};
-
 const getSpectrumLabForSubreddit = async (subredditKey: string): Promise<SpectrumSubmission[]> => {
   const key = SPECTRUM_LAB_KEY(subredditKey);
   const raw = await redis.get(key);
@@ -220,6 +193,35 @@ const saveSpectrumLabForSubreddit = async (
 ): Promise<void> => {
   const key = SPECTRUM_LAB_KEY(subredditKey);
   await redis.set(key, JSON.stringify(submissions));
+};
+
+type UserVotes = Record<string, 'up' | 'down'>;
+
+const getUserVotes = async (subredditKey: string, userKey: string): Promise<UserVotes> => {
+  const key = USER_VOTES_KEY(subredditKey, userKey);
+  const raw = await redis.get(key);
+
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw) as UserVotes;
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch {
+    // ignore parse errors and fall back to empty votes
+  }
+
+  return {};
+};
+
+const saveUserVotes = async (
+  subredditKey: string,
+  userKey: string,
+  votes: UserVotes
+): Promise<void> => {
+  const key = USER_VOTES_KEY(subredditKey, userKey);
+  await redis.set(key, JSON.stringify(votes));
 };
 
 const getAllUserStats = async (): Promise<UserStatsCollection> => {
@@ -288,11 +290,11 @@ const getOrCreateDailyGame = async (subredditKey: string): Promise<DailyGame> =>
     },
   ];
 
-  // Build rounds from the daily config with seed targets
+  // Build rounds from the daily config
   const rounds: DailyGame['rounds'] = dailyConfig.rounds.map((round, index) => ({
     roundIndex: index,
     clue: round.clue,
-    target: round.seedTarget,
+    target: 50, // Placeholder - will be calculated from community average after 8pm
     maxScore: 100,
   }));
 
@@ -939,12 +941,18 @@ router.get<{}, SpectrumLabListResponse | { status: string; message: string }>(
     const subredditKey = getSubredditKey();
 
     try {
-      const submissions = await getSpectrumLabForSubreddit(subredditKey);
+      const userKey = await getUserKey();
+      const [submissions, userVotes] = await Promise.all([
+        getSpectrumLabForSubreddit(subredditKey),
+        getUserVotes(subredditKey, userKey),
+      ]);
+
       submissions.sort((a, b) => b.score - a.score);
 
       const response: SpectrumLabListResponse = {
         type: 'spectrum-lab-list',
         submissions,
+        userVotes,
       };
 
       res.json(response);
@@ -1048,13 +1056,29 @@ router.post<
   }
 
   try {
-    const submissions = await getSpectrumLabForSubreddit(subredditKey);
+    const userKey = await getUserKey();
+    const [submissions, userVotes] = await Promise.all([
+      getSpectrumLabForSubreddit(subredditKey),
+      getUserVotes(subredditKey, userKey),
+    ]);
+
     const index = submissions.findIndex((s) => s.id === submissionId);
 
     if (index === -1) {
       res.status(404).json({
         status: 'error',
         message: 'Submission not found',
+      });
+      return;
+    }
+
+    // Check if user has already voted on this submission
+    const existingVote = userVotes[submissionId];
+
+    if (existingVote) {
+      res.status(400).json({
+        status: 'error',
+        message: 'You have already voted on this submission',
       });
       return;
     }
@@ -1083,6 +1107,7 @@ router.post<
           }
         : {}),
     };
+
     if (direction === 'up') {
       updated.upvotes = (updated.upvotes ?? 0) + 1;
     } else {
@@ -1094,7 +1119,13 @@ router.post<
     next[index] = updated;
     next.sort((a, b) => b.score - a.score);
 
-    await saveSpectrumLabForSubreddit(subredditKey, next);
+    // Record the user's vote
+    const updatedVotes = { ...userVotes, [submissionId]: direction };
+
+    await Promise.all([
+      saveSpectrumLabForSubreddit(subredditKey, next),
+      saveUserVotes(subredditKey, userKey, updatedVotes),
+    ]);
 
     const response: SpectrumLabVoteResponse = {
       type: 'spectrum-lab-vote',
@@ -1454,15 +1485,10 @@ router.post<
 
   // Validate clues
   for (const clue of clues) {
-    if (
-      !clue.clue ||
-      typeof clue.seedTarget !== 'number' ||
-      clue.seedTarget < 0 ||
-      clue.seedTarget > 100
-    ) {
+    if (!clue.clue) {
       res.status(400).json({
         status: 'error',
-        message: 'Each clue must have a clue string and seedTarget between 0-100',
+        message: 'Each clue must have a clue string',
       });
       return;
     }

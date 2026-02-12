@@ -77,9 +77,7 @@ const AppContent = () => {
           />
         );
       case 'unlocked':
-        return (
-          <UnlockedRevealScreen results={results || []} onComplete={() => setView('results')} />
-        );
+        return <UnlockedRevealScreen results={results || []} onComplete={() => setView('hof')} />;
       case 'results':
         return <ResultsScreen results={results} onPlayAgain={handlePlayAgain} />;
       case 'lab':

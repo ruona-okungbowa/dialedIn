@@ -18,11 +18,8 @@ export const ModeratorScreen = () => {
 
   // Form state for clues
   const [clue1, setClue1] = useState('');
-  const [target1, setTarget1] = useState('50');
   const [clue2, setClue2] = useState('');
-  const [target2, setTarget2] = useState('50');
   const [clue3, setClue3] = useState('');
-  const [target3, setTarget3] = useState('50');
   const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
@@ -53,27 +50,8 @@ export const ModeratorScreen = () => {
     event.preventDefault();
     if (!selectedSubmission) return;
 
-    const t1 = parseInt(target1, 10);
-    const t2 = parseInt(target2, 10);
-    const t3 = parseInt(target3, 10);
-
     if (!clue1.trim() || !clue2.trim() || !clue3.trim()) {
       setError('All 3 clues are required');
-      return;
-    }
-
-    if (
-      isNaN(t1) ||
-      isNaN(t2) ||
-      isNaN(t3) ||
-      t1 < 0 ||
-      t1 > 100 ||
-      t2 < 0 ||
-      t2 > 100 ||
-      t3 < 0 ||
-      t3 > 100
-    ) {
-      setError('All targets must be numbers between 0 and 100');
       return;
     }
 
@@ -83,11 +61,7 @@ export const ModeratorScreen = () => {
     try {
       const body: ModeratorApproveRequest = {
         submissionId: selectedSubmission.id,
-        clues: [
-          { clue: clue1.trim(), seedTarget: t1 },
-          { clue: clue2.trim(), seedTarget: t2 },
-          { clue: clue3.trim(), seedTarget: t3 },
-        ],
+        clues: [{ clue: clue1.trim() }, { clue: clue2.trim() }, { clue: clue3.trim() }],
       };
 
       const res = await fetch('/api/moderator/approve', {
@@ -154,11 +128,8 @@ export const ModeratorScreen = () => {
 
   const resetForm = () => {
     setClue1('');
-    setTarget1('50');
     setClue2('');
-    setTarget2('50');
     setClue3('');
-    setTarget3('50');
     setRejectionReason('');
   };
 
@@ -297,15 +268,6 @@ export const ModeratorScreen = () => {
                       onChange={(e) => setClue1(e.target.value)}
                       maxLength={50}
                     />
-                    <input
-                      className="w-full bg-white/10 border-2 border-white/20 rounded-xl p-2.5 md:p-3 text-white placeholder-white/30 font-bold text-sm transition-all focus:border-teal-400 focus:outline-none"
-                      placeholder="Target (0-100)"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={target1}
-                      onChange={(e) => setTarget1(e.target.value)}
-                    />
                   </div>
 
                   {/* Clue 2 */}
@@ -321,15 +283,6 @@ export const ModeratorScreen = () => {
                       onChange={(e) => setClue2(e.target.value)}
                       maxLength={50}
                     />
-                    <input
-                      className="w-full bg-white/10 border-2 border-white/20 rounded-xl p-2.5 md:p-3 text-white placeholder-white/30 font-bold text-sm transition-all focus:border-teal-400 focus:outline-none"
-                      placeholder="Target (0-100)"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={target2}
-                      onChange={(e) => setTarget2(e.target.value)}
-                    />
                   </div>
 
                   {/* Clue 3 */}
@@ -344,15 +297,6 @@ export const ModeratorScreen = () => {
                       value={clue3}
                       onChange={(e) => setClue3(e.target.value)}
                       maxLength={50}
-                    />
-                    <input
-                      className="w-full bg-white/10 border-2 border-white/20 rounded-xl p-2.5 md:p-3 text-white placeholder-white/30 font-bold text-sm transition-all focus:border-teal-400 focus:outline-none"
-                      placeholder="Target (0-100)"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={target3}
-                      onChange={(e) => setTarget3(e.target.value)}
                     />
                   </div>
 

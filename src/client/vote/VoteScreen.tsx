@@ -16,6 +16,7 @@ export const VoteScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortOption>('top');
   const [votingId, setVotingId] = useState<string | null>(null);
+  const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +32,7 @@ export const VoteScreen = () => {
         const data = (await res.json()) as SpectrumLabListResponse;
         if (cancelled) return;
         setSubmissions(data.submissions ?? []);
+        setUserVotes(data.userVotes ?? {});
       } catch (e) {
         if (cancelled) return;
         setError(e instanceof Error ? e.message : 'Unknown error');
@@ -49,6 +51,12 @@ export const VoteScreen = () => {
   }, []);
 
   const handleVote = async (submissionId: string, direction: 'up' | 'down') => {
+    // Check if user has already voted
+    if (userVotes[submissionId]) {
+      setError('You have already voted on this submission');
+      return;
+    }
+
     setVotingId(submissionId);
     setError(null);
 
@@ -67,7 +75,8 @@ export const VoteScreen = () => {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to vote');
+        const errorData = await res.json();
+        throw new Error(errorData.message || 'Failed to vote');
       }
 
       const data = (await res.json()) as SpectrumLabVoteResponse;
@@ -79,6 +88,9 @@ export const VoteScreen = () => {
         next[idx] = data.submission;
         return next;
       });
+
+      // Record the vote locally
+      setUserVotes((prev) => ({ ...prev, [submissionId]: direction }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -230,6 +242,8 @@ export const VoteScreen = () => {
             {sortedSubmissions.map((submission) => {
               const badge = getBadge(submission);
               const isVoting = votingId === submission.id;
+              const hasVoted = !!userVotes[submission.id];
+              const userVote = userVotes[submission.id];
 
               return (
                 <div
@@ -247,10 +261,17 @@ export const VoteScreen = () => {
                   <div className="bg-black/20 md:w-24 flex flex-row md:flex-col items-center justify-center gap-3 md:gap-4 p-3 md:p-0">
                     <button
                       onClick={() => handleVote(submission.id, 'up')}
-                      disabled={isVoting}
-                      className="vote-btn group disabled:opacity-50 transition-all active:scale-90"
+                      disabled={isVoting || hasVoted}
+                      className="vote-btn group disabled:opacity-50 transition-all active:scale-90 disabled:cursor-not-allowed"
+                      title={hasVoted ? 'You have already voted' : 'Upvote'}
                     >
-                      <span className="material-symbols-outlined text-white/40 group-hover:text-[#f472b6] text-4xl md:text-5xl font-black transition-colors">
+                      <span
+                        className={`material-symbols-outlined text-4xl md:text-5xl font-black transition-colors ${
+                          userVote === 'up'
+                            ? 'text-[#f472b6]'
+                            : 'text-white/40 group-hover:text-[#f472b6]'
+                        }`}
+                      >
                         expand_less
                       </span>
                     </button>
@@ -259,10 +280,17 @@ export const VoteScreen = () => {
                     </span>
                     <button
                       onClick={() => handleVote(submission.id, 'down')}
-                      disabled={isVoting || submission.score <= 0}
+                      disabled={isVoting || hasVoted || submission.score <= 0}
                       className="vote-btn group disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-90"
+                      title={hasVoted ? 'You have already voted' : 'Downvote'}
                     >
-                      <span className="material-symbols-outlined text-white/40 group-hover:text-cyan-400 text-4xl md:text-5xl font-black transition-colors">
+                      <span
+                        className={`material-symbols-outlined text-4xl md:text-5xl font-black transition-colors ${
+                          userVote === 'down'
+                            ? 'text-cyan-400'
+                            : 'text-white/40 group-hover:text-cyan-400'
+                        }`}
+                      >
                         expand_more
                       </span>
                     </button>

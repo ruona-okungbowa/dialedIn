@@ -213,7 +213,6 @@ export type SpectrumSubmission = {
    */
   clues?: Array<{
     clue: string;
-    seedTarget: number;
   }>;
   /**
    * Optional rejection reason from moderator

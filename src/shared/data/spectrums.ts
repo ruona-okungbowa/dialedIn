@@ -1,20 +1,17 @@
 import type { Spectrum } from '../types';
 
 /**
- * Daily spectrum configurations with clues and seed targets.
+ * Daily spectrum configurations with clues.
  * Each day has one spectrum with 3 different clues.
  *
- * IMPORTANT: The "seedTarget" is only used for the first 2 hours or until
- * we have 10+ responses. After that, the COMMUNITY MEDIAN becomes the target.
- * This creates a "HiveMind" scoring system where players are rewarded for
- * being on the same wavelength as the Reddit community.
+ * IMPORTANT: Scoring is based purely on community consensus.
+ * Results are locked until 8pm, then scored against the median of all player guesses.
  */
 type DailySpectrumConfig = {
   day: number;
   spectrum: Spectrum;
   rounds: Array<{
     clue: string;
-    seedTarget: number; // Initial target for first 2 hours (0-100)
   }>;
 };
 
@@ -33,9 +30,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['social', 'internet'],
     },
     rounds: [
-      { clue: 'Liking your own posts', seedTarget: 25 },
-      { clue: 'Replying "this" to comments', seedTarget: 15 },
-      { clue: 'Using 😂 unironically in 2024', seedTarget: 30 },
+      { clue: 'Liking your own posts' },
+      { clue: 'Replying "this" to comments' },
+      { clue: 'Using 😂 unironically in 2024' },
     ],
   },
   {
@@ -47,11 +44,7 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       difficulty: 'medium',
       tags: ['opinions', 'trends'],
     },
-    rounds: [
-      { clue: 'Air fryers', seedTarget: 35 },
-      { clue: 'Pumpkin spice everything', seedTarget: 25 },
-      { clue: 'Bidets', seedTarget: 75 },
-    ],
+    rounds: [{ clue: 'Air fryers' }, { clue: 'Pumpkin spice everything' }, { clue: 'Bidets' }],
   },
   {
     day: 3,
@@ -63,9 +56,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['vibes', 'feelings'],
     },
     rounds: [
-      { clue: 'A completely silent room', seedTarget: 65 },
-      { clue: 'Being home alone at night', seedTarget: 55 },
-      { clue: 'Empty parking lots', seedTarget: 70 },
+      { clue: 'A completely silent room' },
+      { clue: 'Being home alone at night' },
+      { clue: 'Empty parking lots' },
     ],
   },
   {
@@ -78,9 +71,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['personality', 'internet'],
     },
     rounds: [
-      { clue: 'Wearing headphones with no music', seedTarget: 70 },
-      { clue: 'Saying "you too" when the waiter says enjoy your meal', seedTarget: 80 },
-      { clue: 'Walking into a room and forgetting why', seedTarget: 75 },
+      { clue: 'Wearing headphones with no music' },
+      { clue: 'Saying "you too" when the waiter says enjoy your meal' },
+      { clue: 'Walking into a room and forgetting why' },
     ],
   },
   {
@@ -93,9 +86,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['personality', 'social'],
     },
     rounds: [
-      { clue: 'Talking about your achievements unprompted', seedTarget: 70 },
-      { clue: "Correcting someone's pronunciation", seedTarget: 60 },
-      { clue: 'Posting your workout stats daily', seedTarget: 65 },
+      { clue: 'Talking about your achievements unprompted' },
+      { clue: "Correcting someone's pronunciation" },
+      { clue: 'Posting your workout stats daily' },
     ],
   },
   {
@@ -108,9 +101,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['behavior', 'quirky'],
     },
     rounds: [
-      { clue: 'Eating dinner at 4pm', seedTarget: 40 },
-      { clue: 'Showering at night instead of morning', seedTarget: 20 },
-      { clue: 'Eating cereal with water instead of milk', seedTarget: 95 },
+      { clue: 'Eating dinner at 4pm' },
+      { clue: 'Showering at night instead of morning' },
+      { clue: 'Eating cereal with water instead of milk' },
     ],
   },
   {
@@ -123,9 +116,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['relationships', 'dating'],
     },
     rounds: [
-      { clue: 'Still friends with their ex', seedTarget: 55 },
-      { clue: "Checks your phone when you're not looking", seedTarget: 90 },
-      { clue: 'Talks about their therapist', seedTarget: 20 },
+      { clue: 'Still friends with their ex' },
+      { clue: "Checks your phone when you're not looking" },
+      { clue: 'Talks about their therapist' },
     ],
   },
   {
@@ -138,9 +131,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['communication', 'social'],
     },
     rounds: [
-      { clue: 'Telling someone they look tired', seedTarget: 60 },
-      { clue: 'Saying "I told you so"', seedTarget: 75 },
-      { clue: 'Giving constructive criticism unasked', seedTarget: 55 },
+      { clue: 'Telling someone they look tired' },
+      { clue: 'Saying "I told you so"' },
+      { clue: 'Giving constructive criticism unasked' },
     ],
   },
   {
@@ -153,9 +146,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['mental-health', 'behavior'],
     },
     rounds: [
-      { clue: 'Treating yourself when stressed', seedTarget: 35 },
-      { clue: 'Staying in bed all weekend', seedTarget: 60 },
-      { clue: 'Retail therapy after a bad day', seedTarget: 50 },
+      { clue: 'Treating yourself when stressed' },
+      { clue: 'Staying in bed all weekend' },
+      { clue: 'Retail therapy after a bad day' },
     ],
   },
   {
@@ -168,9 +161,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['social-media', 'internet'],
     },
     rounds: [
-      { clue: 'Posting gym selfies every day', seedTarget: 75 },
-      { clue: 'LinkedIn motivational posts', seedTarget: 80 },
-      { clue: 'Unboxing videos of everyday items', seedTarget: 70 },
+      { clue: 'Posting gym selfies every day' },
+      { clue: 'LinkedIn motivational posts' },
+      { clue: 'Unboxing videos of everyday items' },
     ],
   },
   {
@@ -183,9 +176,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['relationships', 'mental-health'],
     },
     rounds: [
-      { clue: 'Taking hours or days to reply', seedTarget: 60 },
-      { clue: 'Not sharing passwords with your partner', seedTarget: 30 },
-      { clue: 'Keeping your feelings to yourself', seedTarget: 70 },
+      { clue: 'Taking hours or days to reply' },
+      { clue: 'Not sharing passwords with your partner' },
+      { clue: 'Keeping your feelings to yourself' },
     ],
   },
   {
@@ -198,9 +191,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['behavior', 'public'],
     },
     rounds: [
-      { clue: 'Watching TikToks on full volume in public', seedTarget: 85 },
-      { clue: 'FaceTiming in a restaurant', seedTarget: 80 },
-      { clue: 'Clipping your nails on public transit', seedTarget: 95 },
+      { clue: 'Watching TikToks on full volume in public' },
+      { clue: 'FaceTiming in a restaurant' },
+      { clue: 'Clipping your nails on public transit' },
     ],
   },
   {
@@ -213,9 +206,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['relationships', 'dating'],
     },
     rounds: [
-      { clue: 'Big gestures during arguments', seedTarget: 65 },
-      { clue: 'Love bombing in the first week', seedTarget: 75 },
-      { clue: 'Surprise visits to your workplace', seedTarget: 70 },
+      { clue: 'Big gestures during arguments' },
+      { clue: 'Love bombing in the first week' },
+      { clue: 'Surprise visits to your workplace' },
     ],
   },
   {
@@ -228,9 +221,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['personality', 'social'],
     },
     rounds: [
-      { clue: 'Correcting people mid-conversation', seedTarget: 75 },
-      { clue: 'Starting sentences with "Actually..."', seedTarget: 70 },
-      { clue: 'Explaining things nobody asked about', seedTarget: 80 },
+      { clue: 'Correcting people mid-conversation' },
+      { clue: 'Starting sentences with "Actually..."' },
+      { clue: 'Explaining things nobody asked about' },
     ],
   },
   {
@@ -243,9 +236,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['dating', 'social'],
     },
     rounds: [
-      { clue: "Complimenting someone's scent", seedTarget: 60 },
-      { clue: 'Prolonged eye contact', seedTarget: 55 },
-      { clue: 'Remembering small details they mentioned', seedTarget: 40 },
+      { clue: "Complimenting someone's scent" },
+      { clue: 'Prolonged eye contact' },
+      { clue: 'Remembering small details they mentioned' },
     ],
   },
   {
@@ -258,9 +251,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['relationships', 'attachment'],
     },
     rounds: [
-      { clue: 'Wanting constant updates', seedTarget: 70 },
-      { clue: 'Getting upset when plans change', seedTarget: 65 },
-      { clue: 'Needing daily good morning texts', seedTarget: 60 },
+      { clue: 'Wanting constant updates' },
+      { clue: 'Getting upset when plans change' },
+      { clue: 'Needing daily good morning texts' },
     ],
   },
   {
@@ -273,9 +266,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['relationships', 'dating'],
     },
     rounds: [
-      { clue: "Meeting someone's parents", seedTarget: 75 },
-      { clue: 'Sharing your location', seedTarget: 70 },
-      { clue: 'Talking about future plans together', seedTarget: 80 },
+      { clue: "Meeting someone's parents" },
+      { clue: 'Sharing your location' },
+      { clue: 'Talking about future plans together' },
     ],
   },
   {
@@ -288,9 +281,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['relationships', 'boundaries'],
     },
     rounds: [
-      { clue: 'Forgetting your birthday once', seedTarget: 30 },
-      { clue: 'Being rude to service workers', seedTarget: 85 },
-      { clue: 'Not texting back for a whole day', seedTarget: 40 },
+      { clue: 'Forgetting your birthday once' },
+      { clue: 'Being rude to service workers' },
+      { clue: 'Not texting back for a whole day' },
     ],
   },
   {
@@ -303,9 +296,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['relationships', 'boundaries'],
     },
     rounds: [
-      { clue: 'Sharing locations', seedTarget: 55 },
-      { clue: 'Wanting to know all your passwords', seedTarget: 80 },
-      { clue: 'Checking in multiple times a day', seedTarget: 65 },
+      { clue: 'Sharing locations' },
+      { clue: 'Wanting to know all your passwords' },
+      { clue: 'Checking in multiple times a day' },
     ],
   },
   {
@@ -318,9 +311,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['relationships', 'family'],
     },
     rounds: [
-      { clue: 'Giving unsolicited advice', seedTarget: 65 },
-      { clue: "Constantly asking if you're okay", seedTarget: 60 },
-      { clue: 'Making decisions "for your own good"', seedTarget: 75 },
+      { clue: 'Giving unsolicited advice' },
+      { clue: "Constantly asking if you're okay" },
+      { clue: 'Making decisions "for your own good"' },
     ],
   },
   {
@@ -333,9 +326,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['personality', 'social'],
     },
     rounds: [
-      { clue: "Always taking friends' sides", seedTarget: 70 },
-      { clue: 'Never saying no to requests', seedTarget: 75 },
-      { clue: 'Apologizing even when not wrong', seedTarget: 80 },
+      { clue: "Always taking friends' sides" },
+      { clue: 'Never saying no to requests' },
+      { clue: 'Apologizing even when not wrong' },
     ],
   },
   {
@@ -348,9 +341,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['social-media', 'activism'],
     },
     rounds: [
-      { clue: 'Posting donation receipts', seedTarget: 75 },
-      { clue: 'Filming yourself helping homeless people', seedTarget: 85 },
-      { clue: 'Sharing every petition you sign', seedTarget: 65 },
+      { clue: 'Posting donation receipts' },
+      { clue: 'Filming yourself helping homeless people' },
+      { clue: 'Sharing every petition you sign' },
     ],
   },
   {
@@ -363,9 +356,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['social-media', 'personality'],
     },
     rounds: [
-      { clue: '"This is so me" captions', seedTarget: 60 },
-      { clue: 'Using every trending sound', seedTarget: 70 },
-      { clue: 'Oversharing mundane activities', seedTarget: 55 },
+      { clue: '"This is so me" captions' },
+      { clue: 'Using every trending sound' },
+      { clue: 'Oversharing mundane activities' },
     ],
   },
   {
@@ -378,9 +371,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['internet', 'opinions'],
     },
     rounds: [
-      { clue: 'Gatekeeping hobbies', seedTarget: 70 },
-      { clue: 'Saying "not all men"', seedTarget: 75 },
-      { clue: 'Defending controversial takes', seedTarget: 60 },
+      { clue: 'Gatekeeping hobbies' },
+      { clue: 'Saying "not all men"' },
+      { clue: 'Defending controversial takes' },
     ],
   },
   {
@@ -393,9 +386,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['social-media', 'communication'],
     },
     rounds: [
-      { clue: 'Deleting all social apps', seedTarget: 60 },
-      { clue: 'Not responding to group chats', seedTarget: 70 },
-      { clue: 'Deactivating without telling anyone', seedTarget: 75 },
+      { clue: 'Deleting all social apps' },
+      { clue: 'Not responding to group chats' },
+      { clue: 'Deactivating without telling anyone' },
     ],
   },
   {
@@ -408,9 +401,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['internet', 'gen-z'],
     },
     rounds: [
-      { clue: 'Overusing 💀', seedTarget: 65 },
-      { clue: 'Speaking in TikTok references', seedTarget: 75 },
-      { clue: 'Saying "slay" unironically', seedTarget: 55 },
+      { clue: 'Overusing 💀' },
+      { clue: 'Speaking in TikTok references' },
+      { clue: 'Saying "slay" unironically' },
     ],
   },
   {
@@ -423,9 +416,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['behavior', 'mental-health'],
     },
     rounds: [
-      { clue: 'Going to the gym at 3am', seedTarget: 70 },
-      { clue: 'Posting cryptic sad quotes', seedTarget: 80 },
-      { clue: 'Dramatically changing your look overnight', seedTarget: 65 },
+      { clue: 'Going to the gym at 3am' },
+      { clue: 'Posting cryptic sad quotes' },
+      { clue: 'Dramatically changing your look overnight' },
     ],
   },
   {
@@ -438,9 +431,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['social-media', 'behavior'],
     },
     rounds: [
-      { clue: 'Oversharing online', seedTarget: 75 },
-      { clue: 'Posting couple arguments publicly', seedTarget: 90 },
-      { clue: 'Humble bragging constantly', seedTarget: 70 },
+      { clue: 'Oversharing online' },
+      { clue: 'Posting couple arguments publicly' },
+      { clue: 'Humble bragging constantly' },
     ],
   },
   {
@@ -453,9 +446,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['life-choices', 'career'],
     },
     rounds: [
-      { clue: 'Quitting a job without a backup', seedTarget: 70 },
-      { clue: 'Moving to a new city on a whim', seedTarget: 60 },
-      { clue: 'Ending a long relationship suddenly', seedTarget: 65 },
+      { clue: 'Quitting a job without a backup' },
+      { clue: 'Moving to a new city on a whim' },
+      { clue: 'Ending a long relationship suddenly' },
     ],
   },
   {
@@ -468,9 +461,9 @@ export const DAILY_SPECTRUM_CONFIGS: DailySpectrumConfig[] = [
       tags: ['life-choices', 'identity'],
     },
     rounds: [
-      { clue: 'Drastically changing your appearance', seedTarget: 55 },
-      { clue: 'Buying a sports car at 45', seedTarget: 75 },
-      { clue: 'Suddenly taking up extreme hobbies', seedTarget: 65 },
+      { clue: 'Drastically changing your appearance' },
+      { clue: 'Buying a sports car at 45' },
+      { clue: 'Suddenly taking up extreme hobbies' },
     ],
   },
 ];
@@ -533,7 +526,7 @@ export const pickDailySpectrumsForSubreddit = (subredditId: string, date: string
 };
 
 /**
- * Get the complete daily game configuration including rounds with clues and targets.
+ * Get the complete daily game configuration including rounds with clues.
  * This is used by the server to generate the full DailyGame object.
  *
  * First checks for approved user-generated spectrums, then falls back to the default pool.
@@ -544,7 +537,7 @@ export const getDailyGameConfig = (
     id: string;
     leftLabel: string;
     rightLabel: string;
-    clues: Array<{ clue: string; seedTarget: number }>;
+    clues: Array<{ clue: string }>;
   }>
 ) => {
   // If we have approved user-generated spectrums, use one of them
@@ -565,7 +558,6 @@ export const getDailyGameConfig = (
         },
         rounds: submission.clues.map((c, i) => ({
           clue: c.clue,
-          seedTarget: c.seedTarget,
         })),
       };
     }
