@@ -17,9 +17,6 @@
       "lab": {
         "entry": "lab.html"
       },
-      "moderator": {
-        "entry": "moderator.html"
-      },
       "vote": {
         "entry": "vote.html"
       }
@@ -45,6 +42,14 @@
   },
   "triggers": {
     "onAppInstall": "/internal/on-app-install"
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-post-creation": {
+        "endpoint": "/internal/scheduler/create-daily-post",
+        "cron": "0 0 * * *"
+      }
+    }
   },
   "dev": {
     "subreddit": "dialedin_game_dev"

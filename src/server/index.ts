@@ -1530,6 +1530,28 @@ router.post('/internal/on-app-install', async (_req, res): Promise<void> => {
   }
 });
 
+// Scheduler endpoint - runs daily at midnight to create a new post
+router.post('/internal/scheduler/create-daily-post', async (_req, res): Promise<void> => {
+  try {
+    console.log(`Daily post creation triggered at ${new Date().toISOString()}`);
+
+    const post = await createPost();
+
+    console.log(`Daily post created successfully: ${post.id} in r/${context.subredditName}`);
+
+    res.json({
+      status: 'ok',
+      message: `Daily post created with id ${post.id}`,
+    });
+  } catch (error) {
+    console.error(`Error creating daily post: ${error}`);
+    res.status(500).json({
+      status: 'error',
+      message: 'Failed to create daily post',
+    });
+  }
+});
+
 router.post('/internal/menu/post-create', async (_req, res): Promise<void> => {
   try {
     const post = await createPost();
