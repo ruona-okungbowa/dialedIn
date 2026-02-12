@@ -137,12 +137,18 @@ export const Splash = () => {
                   </span>
                   <span className="text-lg md:text-xl lg:text-2xl text-amber-950">▶</span>
                 </button>
-                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                <div className="grid grid-cols-3 gap-3 md:gap-4">
                   <button
                     onClick={(e) => requestExpandedMode(e.nativeEvent, 'hof')}
                     className="secondary-menu-button py-2 px-2 md:py-2 md:px-3 rounded-xl md:rounded-2xl flex items-center justify-center gap-1 md:gap-2 text-white font-bold text-[10px] md:text-xs uppercase tracking-wider"
                   >
                     <span className="text-xs md:text-sm text-yellow-300">Hall of Fame</span>
+                  </button>
+                  <button
+                    onClick={(e) => requestExpandedMode(e.nativeEvent, 'vote')}
+                    className="secondary-menu-button  py-2 px-2 md:py-2 md:px-3 rounded-xl md:rounded-2xl flex items-center justify-center gap-1 md:gap-2 text-white font-bold text-[10px] md:text-xs uppercase tracking-wider"
+                  >
+                    <span className="text-xs md:text-sm text-pink-300">Vote Spectrums</span>
                   </button>
                   <button
                     onClick={(e) => requestExpandedMode(e.nativeEvent, 'lab')}

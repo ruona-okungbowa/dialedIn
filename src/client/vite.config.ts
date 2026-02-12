@@ -17,6 +17,7 @@ export default defineConfig({
         hof: 'hof.html',
         lab: 'lab.html',
         moderator: 'moderator.html',
+        vote: 'vote.html',
       },
       output: {
         entryFileNames: '[name].js',

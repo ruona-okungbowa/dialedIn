@@ -265,7 +265,7 @@ export const UnlockedRevealScreen = ({ results, onComplete }: UnlockedRevealScre
           className="chunky-button-yellow w-full py-1.5 sm:py-2 rounded-2xl sm:rounded-3xl flex items-center justify-center gap-2 group"
         >
           <span className="text-lg sm:text-xl font-black uppercase tracking-tight text-amber-950">
-            {isOnFinalSlide ? 'View Dashboard' : 'Next'}
+            {isOnFinalSlide ? 'View Leaderboard' : 'Next'}
           </span>
           <span className="material-symbols-outlined text-xl sm:text-2xl text-amber-950 group-hover:translate-x-1 transition-transform">
             arrow_forward_ios

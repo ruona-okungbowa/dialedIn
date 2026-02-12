@@ -19,6 +19,9 @@
       },
       "moderator": {
         "entry": "moderator.html"
+      },
+      "vote": {
+        "entry": "vote.html"
       }
     }
   },
