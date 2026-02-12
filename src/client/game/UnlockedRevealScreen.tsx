@@ -46,6 +46,7 @@ export const UnlockedRevealScreen = ({ results, onComplete }: UnlockedRevealScre
         target: r.target,
         redditAverage: r.redditAverage,
         score: r.score,
+        distanceFromTarget: r.distanceFromTarget ?? 0,
       }));
 
       const shareText = buildEnhancedWavelengthString(roundSummaries);

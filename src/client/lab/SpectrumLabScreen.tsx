@@ -64,7 +64,7 @@ export const SpectrumLabScreen = () => {
       setClue3Text('');
 
       // Show success message
-      setSuccessMessage('Submission Sent! Your spectrum is now pending moderator review.');
+      setSuccessMessage('Submission Sent! Your spectrum is now pending review.');
 
       // Clear success message after 5 seconds
       setTimeout(() => {

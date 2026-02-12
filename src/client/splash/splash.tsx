@@ -5,28 +5,8 @@ import { StrictMode, useState, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 
 export const Splash = () => {
-  const [isModerator, setIsModerator] = useState(false);
-  const [checkingMod, setCheckingMod] = useState(true);
   const [currentStreak, setCurrentStreak] = useState<number>(0);
   const [loadingStreak, setLoadingStreak] = useState(true);
-
-  useEffect(() => {
-    const checkModStatus = async () => {
-      try {
-        const res = await fetch('/api/moderator/check');
-        if (res.ok) {
-          const data = await res.json();
-          setIsModerator(data.isModerator);
-        }
-      } catch (error) {
-        console.error('Failed to check moderator status:', error);
-      } finally {
-        setCheckingMod(false);
-      }
-    };
-
-    void checkModStatus();
-  }, []);
 
   useEffect(() => {
     const fetchStreak = async () => {
@@ -53,20 +33,6 @@ export const Splash = () => {
       <div className="fixed inset-0 pointer-events-none vibrant-pattern"></div>
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-teal-400/20 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-500/20 rounded-full blur-[100px]"></div>
-
-      {/* Mod Mode Button - Only show if user is a moderator */}
-      {!checkingMod && isModerator && (
-        <div className="fixed top-4 right-4 md:top-6 md:right-6 lg:top-8 lg:right-8 flex items-center gap-4 z-50">
-          <button
-            onClick={(e) => requestExpandedMode(e.nativeEvent, 'moderator')}
-            className="mod-mode-button h-12 md:h-14 lg:h-16 px-4 md:px-5 lg:px-6 rounded-xl md:rounded-2xl text-purple-100 flex items-center justify-center gap-2 md:gap-3 hover:scale-105 transition-all shadow-xl group"
-          >
-            <span className="font-bold text-[10px] md:text-xs tracking-[0.15em] md:tracking-[0.2em] uppercase">
-              Mod Mode
-            </span>
-          </button>
-        </div>
-      )}
 
       <div className="relative z-10 w-full max-w-5xl flex flex-col items-center">
         <div className="w-full flex justify-center md:justify-start items-center mb-8 md:mb-12 px-4 md:px-8">

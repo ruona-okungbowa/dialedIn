@@ -209,13 +209,13 @@ export type SpectrumSubmission = {
    */
   status: 'pending_review' | 'approved' | 'rejected';
   /**
-   * Moderator-curated clues with seed targets (only present when approved)
+   * Curated clues (only present when approved)
    */
   clues?: Array<{
     clue: string;
   }>;
   /**
-   * Optional rejection reason from moderator
+   * Optional rejection reason
    */
   rejectionReason?: string;
 };

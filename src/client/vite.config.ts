@@ -16,7 +16,6 @@ export default defineConfig({
         game: 'game.html',
         hof: 'hof.html',
         lab: 'lab.html',
-        moderator: 'moderator.html',
         vote: 'vote.html',
       },
       output: {
